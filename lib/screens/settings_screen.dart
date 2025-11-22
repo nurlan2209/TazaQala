@@ -399,30 +399,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                 ),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 10 : 16,
-                      vertical: isMobile ? 6 : 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.person, size: isMobile ? 16 : 18, color: Colors.grey),
-                        SizedBox(width: isMobile ? 4 : 6),
-                        Text(
-                          'Switch to User',
-                          style: TextStyle(fontSize: isMobile ? 11 : 13, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                const SizedBox.shrink(),
               ],
             ),
           ),

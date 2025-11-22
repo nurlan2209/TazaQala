@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import 'package:tazaqala/providers/auth_provider.dart';
+import 'admin_dashboard_screen.dart';
 import 'auth_screen.dart';
+import 'director_admins_screen.dart';
+import 'my_reports_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -10,26 +14,8 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String userName = '';
-  String userEmail = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserData();
-  }
-
-  Future<void> _loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      userName = prefs.getString('userName') ?? 'Пайдаланушы';
-      userEmail = prefs.getString('userEmail') ?? 'user@example.com';
-    });
-  }
-
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await context.read<AuthProvider>().logout();
 
     if (mounted) {
       Navigator.pushReplacement(
@@ -41,6 +27,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final userName = authProvider.user?.name ?? 'Пайдаланушы';
+    final userEmail = authProvider.user?.email ?? 'user@example.com';
+    final isAdmin = authProvider.isAdmin;
+    final isDirector = authProvider.isDirector;
+
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
 
@@ -114,7 +106,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildMenuItem(
                     icon: Icons.description_outlined,
                     title: 'Менің шағымдарым',
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const MyReportsScreen(),
+                        ),
+                      );
+                    },
                     isMobile: isMobile,
                   ),
                   _buildMenuItem(
@@ -123,6 +122,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onTap: () {},
                     isMobile: isMobile,
                   ),
+                  if (isAdmin)
+                    _buildMenuItem(
+                      icon: Icons.admin_panel_settings,
+                      title: 'Админ панелі',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AdminDashboardScreen(),
+                          ),
+                        );
+                      },
+                      isMobile: isMobile,
+                    ),
+                  if (isDirector)
+                    _buildMenuItem(
+                      icon: Icons.domain,
+                      title: 'Директор панелі',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const DirectorAdminsScreen(),
+                          ),
+                        );
+                      },
+                      isMobile: isMobile,
+                    ),
                   _buildMenuItem(
                     icon: Icons.settings_outlined,
                     title: 'Параметрлер',

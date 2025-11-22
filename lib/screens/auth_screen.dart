@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
+import 'package:provider/provider.dart';
+import 'package:tazaqala/models/user.dart';
+import 'package:tazaqala/providers/auth_provider.dart';
+import 'package:tazaqala/utils/constans.dart';
+import 'admin_dashboard_screen.dart';
 import 'profile_screen.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -24,6 +26,7 @@ class _AuthScreenState extends State<AuthScreen>
   final _registerEmailController = TextEditingController();
   final _registerPasswordController = TextEditingController();
   final _registerConfirmPasswordController = TextEditingController();
+  String? _selectedDistrict;
 
   bool _obscureLoginPassword = true;
   bool _obscureRegisterPassword = true;
@@ -45,57 +48,6 @@ class _AuthScreenState extends State<AuthScreen>
     _registerPasswordController.dispose();
     _registerConfirmPasswordController.dispose();
     super.dispose();
-  }
-
-  // ================= ВСПОМОГАТЕЛЬНЫЕ =================
-
-  String _hashPassword(String password) {
-    final bytes = utf8.encode(password);
-    final digest = sha256.convert(bytes);
-    return digest.toString();
-  }
-
-  Future<Map<String, dynamic>> _getAllUsers() async {
-    final prefs = await SharedPreferences.getInstance();
-    final usersJson = prefs.getString('users');
-
-    if (usersJson == null || usersJson.isEmpty) {
-      return {};
-    }
-
-    try {
-      final Map<String, dynamic> users = json.decode(usersJson);
-      return users;
-    } catch (e) {
-      debugPrint('Ошибка парсинга users: $e');
-      return {};
-    }
-  }
-
-  Future<bool> _saveUser(String name, String email, String password) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      Map<String, dynamic> users = await _getAllUsers();
-
-      if (users.containsKey(email)) {
-        // уже есть такой email
-        return false;
-      }
-
-      users[email] = {
-        'name': name,
-        'email': email,
-        'password': _hashPassword(password),
-        'createdAt': DateTime.now().toIso8601String(),
-      };
-
-      final ok = await prefs.setString('users', json.encode(users));
-      debugPrint('users saved: $ok, total: ${users.length}');
-      return ok;
-    } catch (e) {
-      debugPrint('Ошибка _saveUser: $e');
-      return false;
-    }
   }
 
   void _showError(String msg) {
@@ -132,6 +84,255 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
+  Future<void> _showForgotPasswordDialog() async {
+    final emailController =
+        TextEditingController(text: _loginEmailController.text.trim());
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Құпия сөзді қалпына келтіру'),
+          content: TextField(
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: 'Email',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Болдырмау'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final email = emailController.text.trim();
+                if (email.isEmpty || !email.contains('@')) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Дұрыс email енгізіңіз'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                final provider = context.read<AuthProvider>();
+                final success = await provider.requestPasswordReset(email);
+                if (!mounted) return;
+                Navigator.pop(dialogContext);
+                if (success) {
+                  _showSuccess('Поштаға қалпына келтіру сілтемесі жіберілді');
+                } else {
+                  _showError(provider.errorMessage ?? 'Қате пайда болды');
+                }
+              },
+              child: const Text('Жіберу'),
+            ),
+          ],
+        );
+      },
+    );
+    emailController.dispose();
+  }
+
+  Future<void> _showResendVerificationDialog() async {
+    final emailController =
+        TextEditingController(text: _registerEmailController.text.trim());
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Растау сілтемесін қайта жіберу'),
+          content: TextField(
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: 'Email',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Болдырмау'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final email = emailController.text.trim();
+                if (email.isEmpty || !email.contains('@')) {
+                  _showError('Дұрыс email енгізіңіз');
+                  return;
+                }
+                final provider = context.read<AuthProvider>();
+                final success = await provider.resendVerification(email);
+                if (!mounted) return;
+                Navigator.pop(dialogContext);
+                if (success) {
+                  _showSuccess('Сілтеме email-ге жіберілді');
+                } else {
+                  _showError(provider.errorMessage ?? 'Қате пайда болды');
+                }
+              },
+              child: const Text('Жіберу'),
+            ),
+          ],
+        );
+      },
+    );
+    emailController.dispose();
+  }
+
+  Future<void> _showVerifyEmailDialog() async {
+    final tokenController = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Token арқылы растау'),
+          content: TextField(
+            controller: tokenController,
+            decoration: const InputDecoration(
+              labelText: 'Token',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Болдырмау'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final token = tokenController.text.trim();
+                if (token.isEmpty) {
+                  _showError('Token енгізіңіз');
+                  return;
+                }
+                final provider = context.read<AuthProvider>();
+                final success = await provider.verifyEmailToken(token);
+                if (!mounted) return;
+                Navigator.pop(dialogContext);
+                if (success) {
+                  _showSuccess('Email сәтті расталды!');
+                } else {
+                  _showError(provider.errorMessage ?? 'Қате пайда болды');
+                }
+              },
+              child: const Text('Растау'),
+            ),
+          ],
+        );
+      },
+    );
+    tokenController.dispose();
+  }
+
+  Future<void> _showResetPasswordDialog() async {
+    final tokenController = TextEditingController();
+    final passwordController = TextEditingController();
+    final confirmController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Құпия сөзді жаңарту'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: tokenController,
+                  decoration: const InputDecoration(
+                    labelText: 'Token',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: passwordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Жаңа құпия сөз',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: confirmController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Қайта енгізіңіз',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Болдырмау'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final token = tokenController.text.trim();
+                final password = passwordController.text;
+                final confirm = confirmController.text;
+                if (token.isEmpty || password.isEmpty || confirm.isEmpty) {
+                  _showError('Барлық өрістерді толтырыңыз');
+                  return;
+                }
+                if (password != confirm) {
+                  _showError('Құпия сөздер сәйкес келмейді');
+                  return;
+                }
+                final provider = context.read<AuthProvider>();
+                final success = await provider.resetPassword(
+                  token: token,
+                  password: password,
+                );
+                if (!mounted) return;
+                Navigator.pop(dialogContext);
+                if (success) {
+                  _showSuccess('Құпия сөз жаңартылды');
+                } else {
+                  _showError(provider.errorMessage ?? 'Қате пайда болды');
+                }
+              },
+              child: const Text('Жаңарту'),
+            ),
+          ],
+        );
+      },
+    );
+
+    tokenController.dispose();
+    passwordController.dispose();
+    confirmController.dispose();
+  }
+
+  void _navigateAfterAuth(UserModel user) {
+    if (!mounted) return;
+    if (user.role == 'admin') {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const ProfileScreen()),
+      );
+    }
+  }
+
   // ================== ЛОГИН ==================
 
   Future<void> _login() async {
@@ -148,36 +349,20 @@ class _AuthScreenState extends State<AuthScreen>
       return;
     }
 
-    final users = await _getAllUsers();
-    debugPrint('Попытка входа для: $email');
-    debugPrint('Найдено пользователей: ${users.length}');
+    final authProvider = context.read<AuthProvider>();
+    final success = await authProvider.login(email: email, password: password);
 
-    if (!users.containsKey(email)) {
-      _showError('Пайдаланушы табылмады. Тіркелу қажет.');
+    if (!success) {
+      _showError(authProvider.errorMessage ?? 'Қате пайда болды');
       return;
     }
 
-    final user = users[email] as Map<String, dynamic>;
-    final hashed = _hashPassword(password);
+    final user = authProvider.user;
+    if (user == null) return;
 
-    if (user['password'] != hashed) {
-      _showError('Құпия сөз дұрыс емес');
-      return;
-    }
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLoggedIn', true);
-    await prefs.setString('currentUserEmail', email);
-    await prefs.setString('userName', user['name'] as String);
-    await prefs.setString('userEmail', email);
-
-    if (!mounted) return;
     _showSuccess('Сәтті кірдіңіз!');
     await Future.delayed(const Duration(milliseconds: 500));
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-    );
+    _navigateAfterAuth(user);
   }
 
   // ================== РЕГИСТРАЦИЯ ==================
@@ -187,6 +372,7 @@ class _AuthScreenState extends State<AuthScreen>
     final email = _registerEmailController.text.trim();
     final password = _registerPasswordController.text;
     final confirm = _registerConfirmPasswordController.text;
+    final district = _selectedDistrict;
 
     if (name.isEmpty || email.isEmpty || password.isEmpty || confirm.isEmpty) {
       _showError('Барлық өрістерді толтырыңыз');
@@ -208,32 +394,27 @@ class _AuthScreenState extends State<AuthScreen>
       return;
     }
 
-    final users = await _getAllUsers();
-    if (users.containsKey(email)) {
-      _showError('Бұл email тіркелген. Кіру бетіне өтіңіз.');
-      _tabController.animateTo(0);
+    if (district == null) {
+      _showError('Ауданды таңдаңыз');
       return;
     }
 
-    final ok = await _saveUser(name, email, password);
-    if (!ok) {
-      _showError('Қате пайда болды. Қайталап көріңіз.');
-      return;
-    }
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLoggedIn', true);
-    await prefs.setString('currentUserEmail', email);
-    await prefs.setString('userName', name);
-    await prefs.setString('userEmail', email);
-
-    if (!mounted) return;
-    _showSuccess('Тіркелу сәтті өтті!');
-    await Future.delayed(const Duration(milliseconds: 500));
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+    final authProvider = context.read<AuthProvider>();
+    final success = await authProvider.register(
+      name: name,
+      email: email,
+      password: password,
+      district: district,
     );
+
+    if (!success) {
+      _showError(authProvider.errorMessage ?? 'Қате пайда болды');
+      return;
+    }
+
+    _showSuccess('Тіркелу сәтті өтті! Email растау сілтемесін тексеріңіз.');
+    await Future.delayed(const Duration(milliseconds: 500));
+    _tabController.animateTo(0);
   }
 
   // ================== UI ==================
@@ -294,38 +475,44 @@ class _AuthScreenState extends State<AuthScreen>
                   ),
                 ),
                 SizedBox(height: isMobile ? 24 : 30),
-                Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TabBar(
-                    controller: _tabController,
-                    indicator: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF2E9B8E), Color(0xFF3D8FCC)],
-                      ),
-                      borderRadius: BorderRadius.circular(10),
+                SizedBox(
+                  height: isMobile ? 52 : 56,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    labelColor: Colors.white,
-                    unselectedLabelColor: Colors.grey[700],
-                    labelStyle: TextStyle(
-                      fontSize: isMobile ? 14 : 15,
-                      fontWeight: FontWeight.w600,
+                    child: TabBar(
+                      controller: _tabController,
+                      indicator: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF2E9B8E), Color(0xFF3D8FCC)],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      indicatorPadding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 6,
+                      ),
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.grey[700],
+                      labelStyle: TextStyle(
+                        fontSize: isMobile ? 14 : 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      dividerColor: Colors.transparent,
+                      tabs: const [
+                        Tab(text: 'Кіру'),
+                        Tab(text: 'Тіркелу'),
+                      ],
                     ),
-                    dividerColor: Colors.transparent,
-                    tabs: const [
-                      Tab(text: 'Кіру'),
-                      Tab(text: 'Тіркелу'),
-                    ],
                   ),
                 ),
                 SizedBox(height: isMobile ? 20 : 24),
@@ -348,6 +535,9 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   Widget _buildLoginForm(bool isMobile) {
+    final authProvider = context.watch<AuthProvider>();
+    final isLoading = authProvider.isLoading;
+
     return SingleChildScrollView(
       child: Container(
         padding: EdgeInsets.all(isMobile ? 18 : 22),
@@ -421,7 +611,7 @@ class _AuthScreenState extends State<AuthScreen>
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: () {},
+                onPressed: _showForgotPasswordDialog,
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,
                   minimumSize: const Size(0, 0),
@@ -436,26 +626,80 @@ class _AuthScreenState extends State<AuthScreen>
                 ),
               ),
             ),
+            const SizedBox(height: 6),
+            Wrap(
+              alignment: WrapAlignment.start,
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                TextButton(
+                  onPressed: () => _showResendVerificationDialog(),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 0),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Растауды қайта жіберу',
+                    style: TextStyle(color: Color(0xFF3D8FCC)),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => _showVerifyEmailDialog(),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 0),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Token арқылы растау',
+                    style: TextStyle(color: Color(0xFF3D8FCC)),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => _showResetPasswordDialog(),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 0),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Құпия сөзді жаңарту',
+                    style: TextStyle(color: Color(0xFF3D8FCC)),
+                  ),
+                ),
+              ],
+            ),
             SizedBox(height: isMobile ? 16 : 20),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _login,
+                onPressed: isLoading ? null : _login,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2E9B8E),
+                  foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: isMobile ? 14 : 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   elevation: 0,
                 ),
-                child: Text(
-                  'Кіру',
-                  style: TextStyle(
-                    fontSize: isMobile ? 15 : 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : Text(
+                        'Кіру',
+                        style: TextStyle(
+                          fontSize: isMobile ? 15 : 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
           ],
@@ -465,6 +709,9 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   Widget _buildRegisterForm(bool isMobile) {
+    final authProvider = context.watch<AuthProvider>();
+    final isLoading = authProvider.isLoading;
+
     return SingleChildScrollView(
       child: Container(
         padding: EdgeInsets.all(isMobile ? 18 : 22),
@@ -519,6 +766,37 @@ class _AuthScreenState extends State<AuthScreen>
                 hint: 'example@mail.com',
                 icon: Icons.email_outlined,
               ),
+            ),
+            SizedBox(height: isMobile ? 14 : 16),
+            Text(
+              'Аудан',
+              style: TextStyle(
+                fontSize: isMobile ? 13 : 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[700],
+              ),
+            ),
+            SizedBox(height: isMobile ? 8 : 10),
+            DropdownButtonFormField<String>(
+              value: _selectedDistrict,
+              decoration: _inputDecoration(
+                isMobile: isMobile,
+                hint: 'Ауданды таңдаңыз',
+                icon: Icons.place_outlined,
+              ),
+              items: astanaDistricts
+                  .map(
+                    (district) => DropdownMenuItem<String>(
+                      value: district,
+                      child: Text(district),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedDistrict = value;
+                });
+              },
             ),
             SizedBox(height: isMobile ? 14 : 16),
             Text(
@@ -591,22 +869,32 @@ class _AuthScreenState extends State<AuthScreen>
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _register,
+                onPressed: isLoading ? null : _register,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF3D8FCC),
+                  foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: isMobile ? 14 : 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   elevation: 0,
                 ),
-                child: Text(
-                  'Тіркелу',
-                  style: TextStyle(
-                    fontSize: isMobile ? 15 : 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : Text(
+                        'Тіркелу',
+                        style: TextStyle(
+                          fontSize: isMobile ? 15 : 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
           ],

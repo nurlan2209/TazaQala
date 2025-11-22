@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tazaqala/screens/reports_screen.dart';
-import 'admin_dashboard_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:tazaqala/providers/auth_provider.dart';
 import 'auth_screen.dart';
 import 'profile_screen.dart';
 import 'reports_screen.dart';
@@ -140,23 +139,19 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          onTap: (index) async {
+          onTap: (index) {
             if (index == 3) {
-              final prefs = await SharedPreferences.getInstance();
-              final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-
-              if (mounted) {
-                if (isLoggedIn) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                  );
-                } else {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const AuthScreen()),
-                  );
-                }
+              final authProvider = context.read<AuthProvider>();
+              if (authProvider.isAuthenticated) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                );
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AuthScreen()),
+                );
               }
             } else {
               setState(() {
@@ -245,70 +240,27 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: isMobile ? 32 : 36,
-                                  height: isMobile ? 32 : 36,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    Icons.energy_savings_leaf,
-                                    color: const Color(0xFF2E9B8E),
-                                    size: isMobile ? 18 : 20,
-                                  ),
-                                ),
-                                SizedBox(width: isMobile ? 8 : 10),
-                                Text(
-                                  'TazaQala',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: isMobile ? 18 : 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
+                            Container(
+                              width: isMobile ? 32 : 36,
+                              height: isMobile ? 32 : 36,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.energy_savings_leaf,
+                                color: const Color(0xFF2E9B8E),
+                                size: isMobile ? 18 : 20,
+                              ),
                             ),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const AdminDashboardScreen(),
-                                  ),
-                                );
-                              },
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: isMobile ? 12 : 14,
-                                  vertical: isMobile ? 6 : 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.admin_panel_settings,
-                                      size: isMobile ? 14 : 16,
-                                      color: Colors.grey[700],
-                                    ),
-                                    SizedBox(width: isMobile ? 4 : 6),
-                                    Text(
-                                      'Switch to Admin',
-                                      style: TextStyle(
-                                        fontSize: isMobile ? 11 : 12,
-                                        color: Colors.grey[700],
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                            SizedBox(width: isMobile ? 8 : 10),
+                            Text(
+                              'TazaQala',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: isMobile ? 18 : 20,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],

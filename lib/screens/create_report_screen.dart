@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:tazaqala/services/report_service.dart';
 
 class CreateReportScreen extends StatefulWidget {
   const CreateReportScreen({Key? key}) : super(key: key);
@@ -17,6 +18,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   File? _imageFile;
   Position? _currentPosition;
   final ImagePicker _picker = ImagePicker();
+  final ReportService _reportService = ReportService();
+  bool _isSubmitting = false;
 
   final List<String> _categories = [
     'Қоқыс',
@@ -90,21 +93,46 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   }
 
   Future<void> _submitReport() async {
-    if (_imageFile == null || _selectedCategory == null || _descriptionController.text.isEmpty) {
+    if (_imageFile == null ||
+        _selectedCategory == null ||
+        _descriptionController.text.isEmpty ||
+        _currentPosition == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Барлық өрістерді толтырыңыз')),
+        const SnackBar(content: Text('Барлық өрістер мен локацияны толтырыңыз')),
       );
       return;
     }
 
-    // Node.js API-ға деректерді жіберу
-    // await ApiService.sendReport(...)
+    setState(() {
+      _isSubmitting = true;
+    });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Хабарлама жіберілді!')),
-    );
+    try {
+      await _reportService.createReport(
+        category: _selectedCategory!,
+        description: _descriptionController.text.trim(),
+        lat: _currentPosition!.latitude,
+        lng: _currentPosition!.longitude,
+        image: _imageFile!,
+      );
 
-    Navigator.pop(context, true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Шағым сәтті жіберілді!')),
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Қате: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -206,16 +234,25 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
             // Жіберу батырмасы
             ElevatedButton(
-              onPressed: _submitReport,
+              onPressed: _isSubmitting ? null : _submitReport,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green[700],
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text(
-                'Жіберу',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Жіберу',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
             ),
           ],
         ),

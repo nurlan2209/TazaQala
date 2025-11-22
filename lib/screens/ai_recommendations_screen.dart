@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:tazaqala/models/ai_insight.dart';
+import 'package:tazaqala/services/ai_service.dart';
 
 class AIRecommendationsScreen extends StatefulWidget {
   const AIRecommendationsScreen({Key? key}) : super(key: key);
@@ -9,198 +12,86 @@ class AIRecommendationsScreen extends StatefulWidget {
 }
 
 class _AIRecommendationsScreenState extends State<AIRecommendationsScreen> {
-  final List<Map<String, dynamic>> recommendations = [
-    {
-      'id': 1,
-      'type': 'urgent',
-      'category': 'Қоқыс',
-      'tag': '#Жоғары',
-      'tagColor': Colors.red,
-      'title': 'Қоқыс шағымдары артты',
-      'description':
-      'Соңғы 7 күнде Алматы қалалығының санаты бойынша шағымдар 45% өсті. Қосымша тазалау қызметін ұйымдастыру ұсынылады.',
-      'actionText': 'Қосымша тазалау бригадасын жіберу',
-      'icon': Icons.warning_amber,
-      'iconColor': Colors.orange,
-      'bgColor': const Color(0xFFFFF3E0),
-    },
-    {
-      'id': 2,
-      'type': 'warning',
-      'category': 'Жолдар',
-      'tag': '#Орташа',
-      'tagColor': Colors.orange,
-      'title': 'Жол жөндеуді жоспарлау',
-      'description':
-      'Астана қалалғында жол санаты бойынша 8 белсенді шағым бар. Келесі аптада жөндеу жұмыстарын жоспарлау қажет.',
-      'actionText': 'Жөндеу жоспарын',
-      'icon': Icons.lightbulb_outline,
-      'iconColor': Colors.blue,
-      'bgColor': const Color(0xFFE3F2FD),
-    },
-  ];
+  final AiService _aiService = AiService();
+  late Future<AiInsights> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _aiService.fetchInsights();
+  }
+
+  Future<void> _refresh() async {
+    if (!mounted) return;
+    setState(() {
+      _future = _aiService.fetchInsights();
+    });
+    await _future;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 600;
-
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: CustomScrollView(
-        slivers: [
-          _buildAppBar(isMobile),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(isMobile ? 12 : 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Статистика карточки
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: isMobile ? 2 : 4,
-                    mainAxisSpacing: isMobile ? 12 : 16,
-                    crossAxisSpacing: isMobile ? 12 : 16,
-                    childAspectRatio: isMobile ? 1.2 : 1.4,
-                    children: [
-                      _buildStatCard(
-                        icon: Icons.error_outline,
-                        iconColor: Colors.red,
-                        title: 'Жоғары басымдық',
-                        value: '2',
-                        isMobile: isMobile,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      _buildStatCard(
-                        icon: Icons.warning_amber,
-                        iconColor: Colors.orange,
-                        title: 'Орташа басымдық',
-                        value: '2',
-                        isMobile: isMobile,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFFA726), Color(0xFFFF9800)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      _buildStatCard(
-                        icon: Icons.bar_chart,
-                        iconColor: Colors.blue,
-                        title: 'Барлық ұсыныстар',
-                        value: '5',
-                        isMobile: isMobile,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF42A5F5), Color(0xFF2196F3)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      _buildStatCard(
-                        icon: Icons.auto_awesome,
-                        iconColor: Colors.purple,
-                        title: 'AI дәлдігі',
-                        value: '87%',
-                        isMobile: isMobile,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFAB47BC), Color(0xFF9C27B0)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: isMobile ? 20 : 24),
+      body: FutureBuilder<AiInsights>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return _buildError(snapshot.error.toString());
+          }
 
-                  // Жалпы талдау
-                  Container(
-                    padding: EdgeInsets.all(isMobile ? 16 : 20),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF2E9B8E), Color(0xFF3D8FCC)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF2E9B8E).withOpacity(0.3),
-                          blurRadius: 15,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
+          final insights = snapshot.data;
+          if (insights == null) {
+            return _buildError('Деректер табылмады');
+          }
+
+          final stats = insights.stats;
+          final summary = insights.summary;
+          final recommendations = insights.recommendations;
+          final isMobile = MediaQuery.of(context).size.width < 600;
+
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: CustomScrollView(
+              slivers: [
+                _buildAppBar(isMobile),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(isMobile ? 12 : 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.trending_up,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Жалпы талдау',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: isMobile ? 16 : 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildAnalysisRow(
-                          Icons.arrow_upward,
-                          '23%',
-                          'Шағымдар өсімі (соңғы ай)',
-                          isMobile,
-                        ),
-                        const SizedBox(height: 10),
-                        _buildAnalysisRow(
-                          Icons.schedule,
-                          '3.5 күн',
-                          'Орташа жауап уақыты',
-                          isMobile,
+                        if (summary != null && summary.isNotEmpty)
+                          _buildSummaryCard(summary, isMobile),
+                        if (summary != null && summary.isNotEmpty)
+                          SizedBox(height: isMobile ? 16 : 20),
+                        _buildStatsGrid(stats, isMobile),
+                        SizedBox(height: isMobile ? 20 : 24),
+                        _buildAnalysisCard(stats, isMobile),
+                        SizedBox(height: isMobile ? 20 : 24),
+                        ...recommendations.map(
+                          (rec) => _buildRecommendationCard(rec, isMobile),
                         ),
                       ],
                     ),
                   ),
-                  SizedBox(height: isMobile ? 20 : 24),
-
-                  // AI Рекомендации
-                  ...recommendations.map((rec) => _buildRecommendationCard(rec, isMobile)),
-                ],
-              ),
+                ),
+              ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildAppBar(bool isMobile) {
+  SliverAppBar _buildAppBar(bool isMobile) {
     return SliverAppBar(
       expandedHeight: isMobile ? 120 : 140,
       floating: false,
       pinned: true,
-      automaticallyImplyLeading: false,
       flexibleSpace: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -217,90 +108,95 @@ class _AIRecommendationsScreenState extends State<AIRecommendationsScreen> {
               isMobile ? 12 : 16,
               isMobile ? 12 : 16,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
+            child: Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Flexible(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: isMobile ? 36 : 40,
-                            height: isMobile ? 36 : 40,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.psychology,
-                              color: Colors.white,
-                              size: isMobile ? 20 : 24,
-                            ),
-                          ),
-                          SizedBox(width: isMobile ? 8 : 12),
-                          Flexible(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'AI ұсыныстар',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: isMobile ? 18 : 22,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                Text(
-                                  'AI-based recommendations for city management',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.9),
-                                    fontSize: isMobile ? 10 : 11,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isMobile ? 10 : 16,
-                          vertical: isMobile ? 6 : 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.person, size: isMobile ? 16 : 18, color: Colors.grey),
-                            SizedBox(width: isMobile ? 4 : 6),
-                            Text(
-                              'Switch to User',
-                              style: TextStyle(fontSize: isMobile ? 11 : 13, color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                Container(
+                  width: isMobile ? 36 : 40,
+                  height: isMobile ? 36 : 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(width: isMobile ? 8 : 12),
+                const Text(
+                  'AI ұсыныстар',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStatsGrid(AiStats stats, bool isMobile) {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: isMobile ? 2 : 4,
+      mainAxisSpacing: isMobile ? 12 : 16,
+      crossAxisSpacing: isMobile ? 12 : 16,
+      childAspectRatio: isMobile ? 1.2 : 1.4,
+      children: [
+        _buildStatCard(
+          icon: Icons.error_outline,
+          iconColor: Colors.red,
+          title: 'Жоғары басымдық',
+          value: stats.highPriority.toString(),
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          isMobile: isMobile,
+        ),
+        _buildStatCard(
+          icon: Icons.warning_amber,
+          iconColor: Colors.orange,
+          title: 'Орташа басымдық',
+          value: stats.mediumPriority.toString(),
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFA726), Color(0xFFFF9800)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          isMobile: isMobile,
+        ),
+        _buildStatCard(
+          icon: Icons.bar_chart,
+          iconColor: Colors.blue,
+          title: 'Барлық шағым',
+          value: stats.totalReports.toString(),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF42A5F5), Color(0xFF2196F3)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          isMobile: isMobile,
+        ),
+        _buildStatCard(
+          icon: Icons.auto_awesome,
+          iconColor: Colors.purple,
+          title: 'AI дәлдігі',
+          value: '${stats.accuracy}%',
+          gradient: const LinearGradient(
+            colors: [Color(0xFFAB47BC), Color(0xFF9C27B0)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          isMobile: isMobile,
+        ),
+      ],
     );
   }
 
@@ -309,8 +205,8 @@ class _AIRecommendationsScreenState extends State<AIRecommendationsScreen> {
     required Color iconColor,
     required String title,
     required String value,
-    required bool isMobile,
     required Gradient gradient,
+    required bool isMobile,
   }) {
     return Container(
       padding: EdgeInsets.all(isMobile ? 14 : 16),
@@ -319,253 +215,232 @@ class _AIRecommendationsScreenState extends State<AIRecommendationsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: iconColor.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(10),
+          Icon(icon, color: iconColor, size: isMobile ? 22 : 26),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: isMobile ? 18 : 20,
+              fontWeight: FontWeight.bold,
             ),
-            child: Icon(icon, color: Colors.white, size: isMobile ? 20 : 24),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: isMobile ? 24 : 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              SizedBox(height: isMobile ? 4 : 6),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: isMobile ? 11 : 12,
-                  color: Colors.white.withOpacity(0.9),
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: isMobile ? 12 : 13,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAnalysisRow(IconData icon, String value, String label, bool isMobile) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.white, size: isMobile ? 16 : 18),
+  Widget _buildAnalysisCard(AiStats stats, bool isMobile) {
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2E9B8E), Color(0xFF3D8FCC)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2E9B8E).withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(
-                value,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: isMobile ? 16 : 18,
-                  fontWeight: FontWeight.bold,
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                child: const Icon(Icons.trending_up, color: Colors.white),
               ),
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: isMobile ? 12 : 13,
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Жалпы талдау',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+          _buildAnalysisRow(
+            Icons.arrow_upward,
+            '${stats.monthlyGrowth}',
+            'Шағымдар өсімі (соңғы ай)',
+            isMobile,
+          ),
+          const SizedBox(height: 10),
+          _buildAnalysisRow(
+            Icons.people_outline,
+            '${stats.resolved}/${stats.totalReports}',
+            'Шешілген / жалпы шағымдар',
+            isMobile,
+          ),
+          if (stats.topCategories.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Көп шағым түсетін санаттар',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.85),
+                fontWeight: FontWeight.w600,
+                fontSize: isMobile ? 13 : 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: stats.topCategories
+                  .map(
+                    (cat) => Chip(
+                      label: Text('${cat.category} (${cat.count})'),
+                      backgroundColor: Colors.white.withOpacity(0.15),
+                      labelStyle: const TextStyle(color: Colors.white),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
-  Widget _buildRecommendationCard(Map<String, dynamic> rec, bool isMobile) {
+  Widget _buildSummaryCard(String summary, bool isMobile) {
     return Container(
-      margin: EdgeInsets.only(bottom: isMobile ? 12 : 16),
+      padding: EdgeInsets.all(isMobile ? 14 : 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2E9B8E).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.insights, color: Color(0xFF2E9B8E)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              summary,
+              style: TextStyle(
+                fontSize: isMobile ? 13 : 14,
+                height: 1.4,
+                color: Colors.grey[800],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecommendationCard(AiRecommendation rec, bool isMobile) {
+    return Container(
+      margin: EdgeInsets.only(bottom: isMobile ? 12 : 14),
+      padding: EdgeInsets.all(isMobile ? 14 : 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Заголовок с иконкой
-          Container(
-            padding: EdgeInsets.all(isMobile ? 14 : 16),
-            decoration: BoxDecoration(
-              color: rec['bgColor'],
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: rec['iconColor'].withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    rec['icon'],
-                    color: rec['iconColor'],
-                    size: isMobile ? 20 : 24,
-                  ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _mapColor(rec.level).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        rec['title'],
-                        style: TextStyle(
-                          fontSize: isMobile ? 14 : 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[900],
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: isMobile ? 8 : 10,
-                              vertical: isMobile ? 3 : 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: rec['tagColor'],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              rec['tag'],
-                              style: TextStyle(
-                                fontSize: isMobile ? 10 : 11,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            rec['category'],
-                            style: TextStyle(
-                              fontSize: isMobile ? 11 : 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                child: Icon(
+                  _mapIcon(rec.level),
+                  color: _mapColor(rec.level),
                 ),
-              ],
+              ),
+              const SizedBox(width: 10),
+              Text(
+                rec.category,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF2E9B8E),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            rec.title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
           ),
-          // Описание
-          Padding(
-            padding: EdgeInsets.all(isMobile ? 14 : 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  rec['description'],
-                  style: TextStyle(
-                    fontSize: isMobile ? 13 : 14,
-                    color: Colors.grey[700],
-                    height: 1.5,
-                  ),
-                ),
-                SizedBox(height: isMobile ? 14 : 16),
-                // Кнопки действий
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => _implementRecommendation(rec),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E9B8E),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          padding: EdgeInsets.symmetric(
-                            vertical: isMobile ? 10 : 12,
-                          ),
-                        ),
-                        child: Text(
-                          rec['actionText'],
-                          style: TextStyle(
-                            fontSize: isMobile ? 12 : 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: isMobile ? 8 : 10),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => _showDetails(rec),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF3D8FCC),
-                          side: const BorderSide(color: Color(0xFF3D8FCC)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          padding: EdgeInsets.symmetric(
-                            vertical: isMobile ? 10 : 12,
-                          ),
-                        ),
-                        child: Text(
-                          'Толығырақ',
-                          style: TextStyle(
-                            fontSize: isMobile ? 12 : 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+          const SizedBox(height: 8),
+          Text(
+            rec.description,
+            style: TextStyle(
+              color: Colors.grey[700],
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => _showRecommendationDetail(rec),
+              child: Text(
+                rec.action,
+                style: const TextStyle(color: Color(0xFF3D8FCC)),
+              ),
             ),
           ),
         ],
@@ -573,155 +448,122 @@ class _AIRecommendationsScreenState extends State<AIRecommendationsScreen> {
     );
   }
 
-  void _implementRecommendation(Map<String, dynamic> rec) {
+  Widget _buildAnalysisRow(
+      IconData icon, String value, String label, bool isMobile) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: Colors.white),
+        ),
+        SizedBox(width: isMobile ? 8 : 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: isMobile ? 16 : 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.8),
+                fontSize: isMobile ? 12 : 13,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _showRecommendationDetail(AiRecommendation rec) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
+        title: Text(rec.title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(rec['icon'], color: rec['iconColor']),
-            const SizedBox(width: 8),
-            const Expanded(child: Text('Ұсынысты орындау')),
+            Text(
+              rec.category,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF2E9B8E),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              rec.description,
+              style: TextStyle(color: Colors.grey[800], height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.auto_awesome, size: 18, color: Color(0xFF3D8FCC)),
+                const SizedBox(width: 6),
+                Expanded(child: Text(rec.action)),
+              ],
+            ),
           ],
-        ),
-        content: Text(
-          '${rec['title']} ұсынысын орындағыңыз келетініне сенімдісіз бе?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Жоқ'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('${rec['title']} ұсынысы орындалуда...'),
-                  backgroundColor: const Color(0xFF2E9B8E),
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2E9B8E),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('Иә, орындау'),
+            child: const Text('Жабу'),
           ),
         ],
       ),
     );
   }
 
-  void _showDetails(Map<String, dynamic> rec) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: rec['bgColor'],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(rec['icon'], color: rec['iconColor'], size: 28),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        rec['title'],
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildDetailRow(Icons.category, 'Санат', rec['category']),
-                _buildDetailRow(Icons.label, 'Басымдық', rec['tag']),
-                const SizedBox(height: 12),
-                const Text(
-                  'Сипаттама:',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  rec['description'],
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[800],
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2E9B8E),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text('Жабу'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
+  Widget _buildError(String message) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: Colors.grey[600]),
-          const SizedBox(width: 8),
-          Text(
-            '$label: ',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
+          const Icon(Icons.error_outline, color: Colors.red, size: 40),
+          const SizedBox(height: 12),
+          Text('Қате: $message'),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: _refresh,
+            child: const Text('Қайталау'),
           ),
         ],
       ),
     );
+  }
+
+  IconData _mapIcon(String level) {
+    switch (level) {
+      case 'urgent':
+        return Icons.warning_amber;
+      case 'warning':
+        return Icons.lightbulb_outline;
+      default:
+        return Icons.auto_fix_high;
+    }
+  }
+
+  Color _mapColor(String level) {
+    switch (level) {
+      case 'urgent':
+        return Colors.red;
+      case 'warning':
+        return Colors.orange;
+      default:
+        return Colors.blue;
+    }
   }
 }
