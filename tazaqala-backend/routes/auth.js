@@ -20,6 +20,7 @@ const buildAuthResponse = (user) => ({
 });
 
 const generateToken = () => crypto.randomBytes(32).toString("hex");
+const generateNumericCode = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 // Register client
 router.post("/register", async (req, res) => {
@@ -70,7 +71,7 @@ router.post("/register", async (req, res) => {
     );
 
     res.json({
-      message: "Тіркелу сәтті. Email-ге растау сілтемесі жіберілді.",
+      message: "Тіркелу сәтті",
       token,
       user: buildAuthResponse(user)
     });
@@ -93,11 +94,6 @@ router.post("/login", async (req, res) => {
     if (!user) return res.status(400).json({ message: "User not found" });
     if (!user.isActive) {
       return res.status(403).json({ message: "Аккаунт бұғатталған" });
-    }
-    if (!user.emailVerified) {
-      return res
-        .status(403)
-        .json({ message: "Email расталмаған. Поштаңызды тексеріңіз." });
     }
 
     const match = await bcrypt.compare(password, user.password);
@@ -166,7 +162,7 @@ router.post("/resend-verification", async (req, res) => {
       return res.status(400).json({ message: "Email бұрын расталған" });
     }
 
-    const token = generateToken();
+    const token = generateNumericCode();
     user.emailVerificationToken = token;
     user.emailVerificationExpires = Date.now() + 1000 * 60 * 60 * 24;
     await user.save();
@@ -193,7 +189,7 @@ router.post("/forgot-password", async (req, res) => {
         .json({ message: "Егер email тіркелген болса, сілтеме жіберілді" });
     }
 
-    const token = generateToken();
+    const token = generateNumericCode();
     user.resetPasswordToken = token;
     user.resetPasswordExpires = Date.now() + 1000 * 60 * 60; // 1h
     await user.save();

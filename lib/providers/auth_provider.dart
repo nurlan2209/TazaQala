@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/user_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   AuthProvider({AuthService? authService})
@@ -12,6 +13,7 @@ class AuthProvider extends ChangeNotifier {
 
   final AuthService _authService;
   final ApiService _apiService = ApiService();
+  final _userService = UserService();
 
   UserModel? _user;
   String? _token;
@@ -146,6 +148,32 @@ class AuthProvider extends ChangeNotifier {
     if (_isLoading == value) return;
     _isLoading = value;
     notifyListeners();
+  }
+
+  Future<bool> updateProfile({
+    String? name,
+    String? email,
+    String? password,
+  }) async {
+    _setLoading(true);
+    try {
+      final updated = await _userService.updateMe(
+        name: name,
+        email: email,
+        password: password,
+      );
+      _user = updated;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('auth_user', jsonEncode(updated.toJson()));
+      notifyListeners();
+      return true;
+    } catch (err) {
+      _error = _mapError(err);
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
   }
 
   Future<void> _persistSession(AuthResult result) async {

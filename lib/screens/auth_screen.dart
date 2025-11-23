@@ -5,6 +5,7 @@ import 'package:tazaqala/providers/auth_provider.dart';
 import 'package:tazaqala/utils/constans.dart';
 import 'admin_dashboard_screen.dart';
 import 'profile_screen.dart';
+import 'home_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({Key? key}) : super(key: key);
@@ -198,25 +199,14 @@ class _AuthScreenState extends State<AuthScreen> {
       },
     );
 
-    emailController.dispose();
-    codeController.dispose();
-    newPassController.dispose();
-    confirmController.dispose();
   }
 
   void _navigateAfterAuth(UserModel user) {
     if (!mounted) return;
-    if (user.role == 'admin') {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
-      );
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const ProfileScreen()),
-      );
-    }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+    );
   }
 
   Future<void> _login() async {
@@ -610,7 +600,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _showError(auth.errorMessage ?? 'Қате пайда болды');
       return;
     }
-    _showSuccess('Тіркелу сәтті! Email-ді растаңыз.');
+    _showSuccess('Тіркелу сәтті!');
     await Future.delayed(const Duration(milliseconds: 300));
     if (mounted) Navigator.pop(context);
   }

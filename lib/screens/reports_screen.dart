@@ -166,150 +166,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ],
                       ),
                       SizedBox(height: isMobile ? 14 : 20),
-                      // Фильтры
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: filters.map((filter) {
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: _buildFilterChip(filter, isMobile),
-                            );
-                          }).toList(),
+                      SizedBox(
+                        width: double.infinity,
+                        child: Wrap(
+                          alignment: WrapAlignment.spaceEvenly,
+                          runAlignment: WrapAlignment.start,
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            ...filters.map((filter) => _buildFilterChip(filter, isMobile)),
+                            _buildDistrictSelector(isMobile, canChangeDistrict),
+                            _buildMapToggle(isMobile),
+                          ],
                         ),
-                      ),
-                      SizedBox(height: isMobile ? 10 : 12),
-                      // Город и карта
-                      Row(
-                        children: [
-                          Flexible(
-                            child: canChangeDistrict
-                                ? PopupMenuButton<String>(
-                                    initialValue: selectedDistrict,
-                                    onSelected: (value) {
-                                      setState(() {
-                                        selectedDistrict = value;
-                                      });
-                                      _loadReports();
-                                    },
-                                    child: Container(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: isMobile ? 10 : 12,
-                                        vertical: isMobile ? 8 : 10,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(
-                                          color: Colors.white.withOpacity(0.3),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Flexible(
-                                            child: Text(
-                                              selectedDistrict ?? 'Барлығы',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: isMobile ? 11 : 13,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          SizedBox(width: isMobile ? 4 : 6),
-                                          Icon(
-                                            Icons.keyboard_arrow_down,
-                                            color: Colors.white,
-                                            size: isMobile ? 16 : 18,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    itemBuilder: (context) {
-                                      return districtOptions.map((district) {
-                                        return PopupMenuItem<String>(
-                                          value: district,
-                                          child: Text(district),
-                                        );
-                                      }).toList();
-                                    },
-                                  )
-                                : Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: isMobile ? 10 : 12,
-                                      vertical: isMobile ? 8 : 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: Colors.white.withOpacity(0.3),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            selectedDistrict ?? 'Аудан таңдалмады',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: isMobile ? 11 : 13,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                          ),
-                          SizedBox(width: isMobile ? 8 : 12),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                showMap = !showMap;
-                              });
-                            },
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: isMobile ? 10 : 12,
-                                vertical: isMobile ? 8 : 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: showMap
-                                    ? Colors.white
-                                    : Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.3),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.map_outlined,
-                                    color: showMap
-                                        ? const Color(0xFF2E9B8E)
-                                        : Colors.white,
-                                    size: isMobile ? 14 : 16,
-                                  ),
-                                  SizedBox(width: isMobile ? 4 : 6),
-                                  Text(
-                                    'Картада көру',
-                                    style: TextStyle(
-                                      color: showMap
-                                          ? const Color(0xFF2E9B8E)
-                                          : Colors.white,
-                                      fontSize: isMobile ? 11 : 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -393,8 +262,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
       },
       child: Container(
         padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? 12 : 16,
-          vertical: isMobile ? 6 : 8,
+          horizontal: isMobile ? 16 : 18,
+          vertical: isMobile ? 9 : 11,
         ),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
@@ -407,9 +276,86 @@ class _ReportsScreenState extends State<ReportsScreen> {
           label,
           style: TextStyle(
             color: isSelected ? const Color(0xFF2E9B8E) : Colors.white,
-            fontSize: isMobile ? 11 : 13,
+            fontSize: isMobile ? 12 : 13,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDistrictSelector(bool isMobile, bool canChangeDistrict) {
+    final content = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            selectedDistrict ?? 'Аудан таңдалмады',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: isMobile ? 11 : 13,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 14 : 16,
+        vertical: isMobile ? 9 : 11,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.3),
+        ),
+      ),
+      constraints: BoxConstraints(
+        minWidth: isMobile ? 180 : 210,
+      ),
+      child: content,
+    );
+  }
+
+  Widget _buildMapToggle(bool isMobile) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          showMap = !showMap;
+        });
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 12 : 14,
+          vertical: isMobile ? 8 : 10,
+        ),
+        decoration: BoxDecoration(
+          color: showMap ? Colors.white : Colors.white.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.3),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.map_outlined,
+              color: showMap ? const Color(0xFF2E9B8E) : Colors.white,
+              size: isMobile ? 14 : 16,
+            ),
+            SizedBox(width: isMobile ? 6 : 8),
+            Text(
+              'Картада көру',
+              style: TextStyle(
+                color: showMap ? const Color(0xFF2E9B8E) : Colors.white,
+                fontSize: isMobile ? 11 : 13,
+              ),
+            ),
+          ],
         ),
       ),
     );

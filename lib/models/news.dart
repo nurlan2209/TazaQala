@@ -5,6 +5,7 @@ class NewsItem {
     required this.description,
     required this.district,
     this.imageUrl,
+    this.url,
     required this.isPublished,
     required this.publishedAt,
   });
@@ -14,6 +15,7 @@ class NewsItem {
   final String description;
   final String district;
   final String? imageUrl;
+  final String? url;
   final bool isPublished;
   final DateTime publishedAt;
 
@@ -25,6 +27,7 @@ class NewsItem {
       description: json['description'] as String? ?? '',
       district: json['district'] as String? ?? '',
       imageUrl: json['imageUrl'] as String?,
+      url: json['url'] as String?,
       isPublished: json['isPublished'] as bool? ?? true,
       publishedAt: DateTime.tryParse(json['publishedAt'] as String? ?? '') ??
           DateTime.now(),
@@ -37,6 +40,7 @@ class NewsItem {
         'description': description,
         'district': district,
         'imageUrl': imageUrl,
+        'url': url,
         'isPublished': isPublished,
         'publishedAt': publishedAt.toIso8601String(),
       };

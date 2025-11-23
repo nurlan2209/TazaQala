@@ -58,4 +58,21 @@ class UserService {
     final data = response.data as Map<String, dynamic>;
     return UserModel.fromJson(data['admin'] as Map<String, dynamic>);
   }
+
+  Future<UserModel> updateMe({
+    String? name,
+    String? email,
+    String? password,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (name != null) payload['name'] = name;
+    if (email != null) payload['email'] = email;
+    if (password != null && password.isNotEmpty) {
+      payload['password'] = password;
+    }
+
+    final response = await _apiService.patch('/users/me', data: payload);
+    final data = response.data as Map<String, dynamic>;
+    return UserModel.fromJson(data['user'] as Map<String, dynamic>);
+  }
 }

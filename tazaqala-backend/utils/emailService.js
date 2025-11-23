@@ -1,4 +1,7 @@
 import nodemailer from "nodemailer";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const {
   SMTP_HOST,
@@ -24,14 +27,21 @@ const transporter = nodemailer.createTransport({
 const baseAppUrl = APP_URL || "http://localhost:5001";
 
 const safeSend = async (options) => {
-  if (!SMTP_HOST) {
-    console.warn("SMTP credentials not configured, skip email");
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+    console.warn(
+      "SMTP credentials not configured, skip email",
+      { host: SMTP_HOST, user: SMTP_USER }
+    );
     return;
   }
-  await transporter.sendMail({
-    from: SMTP_USER,
-    ...options
-  });
+  try {
+    await transporter.sendMail({
+      from: SMTP_USER,
+      ...options
+    });
+  } catch (err) {
+    console.error("Email send error:", err?.message || err);
+  }
 };
 
 export const sendVerificationEmail = async (to, token) => {
@@ -49,14 +59,13 @@ export const sendVerificationEmail = async (to, token) => {
 };
 
 export const sendPasswordResetEmail = async (to, token) => {
-  const resetUrl = `${baseAppUrl}/reset-password?token=${token}`;
   await safeSend({
     to,
-    subject: "TazaQala | Құпия сөзді жаңарту",
+    subject: "TazaQala | Құпия сөзді жаңарту коды",
     html: `
-      <p>Құпия сөзді жаңарту үшін төмендегі сілтемеге өтіңіз:</p>
-      <p><a href="${resetUrl}" target="_blank">Құпия сөзді жаңарту</a></p>
-      <p>Сілтеме 1 сағат ішінде жарамды.</p>
+      <p>Құпия сөзді жаңарту үшін төмендегі кодты қолданыңыз.</p>
+      <p><strong>Код:</strong> <span style="font-size:18px;">${token}</span></p>
+      <p>Код 1 сағат ішінде жарамды.</p>
     `
   });
 };

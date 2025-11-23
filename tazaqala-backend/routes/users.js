@@ -6,6 +6,16 @@ import { auth, authorizeRoles } from "../middleware/auth.js";
 
 const router = express.Router();
 
+const sanitizeUser = (user) => {
+  const obj = user.toObject();
+  delete obj.password;
+  delete obj.resetPasswordToken;
+  delete obj.resetPasswordExpires;
+  delete obj.emailVerificationToken;
+  delete obj.emailVerificationExpires;
+  return obj;
+};
+
 // List admins grouped by district
 router.get(
   "/admins",
@@ -116,5 +126,36 @@ router.patch(
     }
   }
 );
+
+// Update own profile
+router.patch("/me", auth, async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (email && email !== user.email) {
+      const exists = await User.findOne({ email });
+      if (exists) {
+        return res.status(400).json({ message: "Email already exists" });
+      }
+      user.email = email;
+      user.emailVerified = false;
+    }
+
+    if (name) user.name = name;
+    if (password) {
+      user.password = await bcrypt.hash(password, 10);
+    }
+
+    await user.save();
+    res.json({ message: "Жаңартылды", user: sanitizeUser(user) });
+  } catch (err) {
+    console.error("Update self error:", err);
+    res.status(500).json({ message: "Сервер қатесі" });
+  }
+});
 
 export default router;

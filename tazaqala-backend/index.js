@@ -8,6 +8,7 @@ import reportRoutes from "./routes/reports.js";
 import userRoutes from "./routes/users.js";
 import newsRoutes from "./routes/news.js";
 import astanaNewsRoutes from "./routes/astanaNews.js";
+import proxyRoutes from "./routes/proxy.js";
 
 dotenv.config();
 const app = express();
@@ -25,6 +26,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/astana-news", astanaNewsRoutes);
+app.use("/api/proxy", proxyRoutes);
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

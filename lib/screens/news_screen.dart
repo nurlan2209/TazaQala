@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:tazaqala/models/news.dart';
 import 'package:tazaqala/providers/auth_provider.dart';
 import 'package:tazaqala/services/news_service.dart';
@@ -15,6 +16,7 @@ class NewsScreen extends StatefulWidget {
 class _NewsScreenState extends State<NewsScreen> {
   final NewsService _newsService = NewsService();
   late Future<List<NewsItem>> _future;
+  int _page = 0;
 
   @override
   void initState() {
@@ -24,14 +26,15 @@ class _NewsScreenState extends State<NewsScreen> {
 
   Future<List<NewsItem>> _loadNews() {
     final authProvider = context.read<AuthProvider>();
-    final district =
-        authProvider.isDirector ? null : authProvider.user?.district;
+    // Если новости пустые, убираем фильтр по району, чтобы показывать все.
+    final district = authProvider.isDirector ? null : null;
     return _newsService.fetchNews(district: district);
   }
 
   Future<void> _refresh() async {
     if (!mounted) return;
     setState(() {
+      _page = 0;
       _future = _loadNews();
     });
     await _future;
@@ -49,11 +52,23 @@ class _NewsScreenState extends State<NewsScreen> {
           }
 
           if (snapshot.hasError) {
+            // ignore: avoid_print
+            print('NewsScreen error: ${snapshot.error}');
             return _buildError(snapshot.error.toString());
           }
 
           final items = snapshot.data ?? [];
-          if (items.isEmpty) {
+          // ignore: avoid_print
+          print('NewsScreen loaded items: ${items.length}');
+          final limited = items.length > 40 ? items.sublist(0, 40) : items;
+          final pageCount = (limited.length / 10).ceil();
+          final currentPage =
+              pageCount == 0 ? 0 : _page.clamp(0, pageCount - 1);
+          final visibleItems = pageCount == 0
+              ? <NewsItem>[]
+              : limited.skip(currentPage * 10).take(10).toList();
+
+          if (visibleItems.isEmpty) {
             return _buildEmptyState();
           }
 
@@ -67,11 +82,18 @@ class _NewsScreenState extends State<NewsScreen> {
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) =>
-                          _buildNewsCard(items[index], MediaQuery.of(context).size.width < 600),
-                      childCount: items.length,
+                          _buildNewsCard(visibleItems[index], MediaQuery.of(context).size.width < 600),
+                      childCount: visibleItems.length,
                     ),
                   ),
                 ),
+                if (pageCount > 1)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _buildPagination(pageCount, currentPage),
+                    ),
+                  ),
               ],
             ),
           );
@@ -158,6 +180,15 @@ class _NewsScreenState extends State<NewsScreen> {
               width: double.infinity,
               height: isMobile ? 180 : 220,
               fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: isMobile ? 180 : 220,
+                  color: Colors.grey[200],
+                  child: const Center(
+                    child: Icon(Icons.image_not_supported, color: Colors.grey),
+                  ),
+                );
+              },
             ),
           ),
           Padding(
@@ -252,6 +283,15 @@ class _NewsScreenState extends State<NewsScreen> {
                   width: double.infinity,
                   height: 200,
                   fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 200,
+                      color: Colors.grey[200],
+                      child: const Center(
+                        child: Icon(Icons.image_not_supported, color: Colors.grey),
+                      ),
+                    );
+                  },
                 ),
               ),
               Padding(
@@ -286,6 +326,30 @@ class _NewsScreenState extends State<NewsScreen> {
                         height: 1.5,
                       ),
                     ),
+                    if (newsItem.url != null && newsItem.url!.isNotEmpty) ...[
+                      SizedBox(height: isMobile ? 12 : 16),
+                      InkWell(
+                        onTap: () async {
+                          final uri = Uri.tryParse(newsItem.url!);
+                          if (uri != null && await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        child: Row(
+                          children: const [
+                            Icon(Icons.link, color: Color(0xFF3D8FCC)),
+                            SizedBox(width: 6),
+                            Text(
+                              'Tengrinews →',
+                              style: TextStyle(
+                                color: Color(0xFF3D8FCC),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     SizedBox(height: isMobile ? 16 : 20),
                     SizedBox(
                       width: double.infinity,
@@ -341,5 +405,33 @@ class _NewsScreenState extends State<NewsScreen> {
 
   String _formatDate(DateTime date) {
     return DateFormat('dd.MM.yyyy').format(date);
+  }
+
+  Widget _buildPagination(int pageCount, int currentPage) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(pageCount, (index) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _page = index;
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+                  currentPage == index ? const Color(0xFF2E9B8E) : Colors.white,
+              foregroundColor:
+                  currentPage == index ? Colors.white : const Color(0xFF2E9B8E),
+              minimumSize: const Size(36, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              side: const BorderSide(color: Color(0xFF2E9B8E)),
+            ),
+            child: Text('${index + 1}'),
+          ),
+        );
+      }),
+    );
   }
 }
