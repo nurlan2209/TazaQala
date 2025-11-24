@@ -1,7 +1,7 @@
 import express from "express";
 import upload from "../middleware/upload.js";
 import cloudinary from "../utils/cloudinary.js";
-import Report from "../models/Report.js";
+import Report from "../models/report.js";
 import User from "../models/User.js";
 import { auth, authorizeRoles } from "../middleware/auth.js";
 import { sendReportStatusEmail } from "../utils/emailService.js";
