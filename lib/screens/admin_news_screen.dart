@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:tazaqala/models/news.dart';
 import 'package:tazaqala/services/news_service.dart';
-import 'package:tazaqala/utils/constans.dart';
 
 class AdminNewsScreen extends StatefulWidget {
   const AdminNewsScreen({Key? key}) : super(key: key);
@@ -13,7 +12,6 @@ class AdminNewsScreen extends StatefulWidget {
 
 class _AdminNewsScreenState extends State<AdminNewsScreen> {
   final NewsService _newsService = NewsService();
-  String selectedDistrict = 'Барлығы';
   late Future<List<NewsItem>> _future;
 
   @override
@@ -22,10 +20,7 @@ class _AdminNewsScreenState extends State<AdminNewsScreen> {
     _future = _loadNews();
   }
 
-  Future<List<NewsItem>> _loadNews() {
-    final district = selectedDistrict == 'Барлығы' ? null : selectedDistrict;
-    return _newsService.fetchNews(district: district);
-  }
+  Future<List<NewsItem>> _loadNews() => _newsService.fetchNews();
 
   Future<void> _refresh() async {
     if (!mounted) return;
@@ -126,49 +121,6 @@ class _AdminNewsScreenState extends State<AdminNewsScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                PopupMenuButton<String>(
-                  initialValue: selectedDistrict,
-                  onSelected: (value) {
-                    setState(() {
-                      selectedDistrict = value;
-                    });
-                    _refresh();
-                  },
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 12 : 14,
-                      vertical: isMobile ? 8 : 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            selectedDistrict,
-                            style: const TextStyle(color: Colors.white),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Icon(Icons.keyboard_arrow_down, color: Colors.white),
-                      ],
-                    ),
-                  ),
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'Барлығы', child: Text('Барлығы')),
-                    ...astanaDistricts.map(
-                      (district) => PopupMenuItem(
-                        value: district,
-                        child: Text(district),
-                      ),
-                    ),
-                  ],
-                )
               ],
             ),
           ),
@@ -284,7 +236,6 @@ class _AdminNewsScreenState extends State<AdminNewsScreen> {
     final descriptionController =
         TextEditingController(text: existing?.description ?? '');
     final imageController = TextEditingController(text: existing?.imageUrl ?? '');
-    String district = existing?.district ?? astanaDistricts.first;
     bool isPublished = existing?.isPublished ?? true;
     bool isSaving = false;
 
@@ -306,7 +257,6 @@ class _AdminNewsScreenState extends State<AdminNewsScreen> {
                   await _newsService.createNews(
                     title: titleController.text.trim(),
                     description: descriptionController.text.trim(),
-                    district: district,
                     imageUrl: imageController.text.trim().isEmpty
                         ? null
                         : imageController.text.trim(),
@@ -317,7 +267,6 @@ class _AdminNewsScreenState extends State<AdminNewsScreen> {
                     id: existing.id,
                     title: titleController.text.trim(),
                     description: descriptionController.text.trim(),
-                    district: district,
                     imageUrl: imageController.text.trim(),
                     isPublished: isPublished,
                   );
@@ -375,23 +324,6 @@ class _AdminNewsScreenState extends State<AdminNewsScreen> {
                             : null,
                       ),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: district,
-                        decoration: const InputDecoration(
-                          labelText: 'Аудан',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: astanaDistricts
-                            .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                            .toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setModalState(() {
-                              district = value;
-                            });
-                          }
-                        },
-                      ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: imageController,

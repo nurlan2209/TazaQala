@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:tazaqala/models/news.dart';
-import 'package:tazaqala/providers/auth_provider.dart';
 import 'package:tazaqala/services/news_service.dart';
 
 class NewsScreen extends StatefulWidget {
-  const NewsScreen({Key? key}) : super(key: key);
+  const NewsScreen({super.key});
 
   @override
   State<NewsScreen> createState() => _NewsScreenState();
@@ -25,10 +23,7 @@ class _NewsScreenState extends State<NewsScreen> {
   }
 
   Future<List<NewsItem>> _loadNews() {
-    final authProvider = context.read<AuthProvider>();
-    // Если новости пустые, убираем фильтр по району, чтобы показывать все.
-    final district = authProvider.isDirector ? null : null;
-    return _newsService.fetchNews(district: district);
+    return _newsService.fetchNews();
   }
 
   Future<void> _refresh() async {
@@ -62,8 +57,9 @@ class _NewsScreenState extends State<NewsScreen> {
           print('NewsScreen loaded items: ${items.length}');
           final limited = items.length > 40 ? items.sublist(0, 40) : items;
           final pageCount = (limited.length / 10).ceil();
-          final currentPage =
-              pageCount == 0 ? 0 : _page.clamp(0, pageCount - 1);
+          final currentPage = pageCount == 0
+              ? 0
+              : _page.clamp(0, pageCount - 1);
           final visibleItems = pageCount == 0
               ? <NewsItem>[]
               : limited.skip(currentPage * 10).take(10).toList();
@@ -81,8 +77,10 @@ class _NewsScreenState extends State<NewsScreen> {
                   padding: const EdgeInsets.all(16),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
-                      (context, index) =>
-                          _buildNewsCard(visibleItems[index], MediaQuery.of(context).size.width < 600),
+                      (context, index) => _buildNewsCard(
+                        visibleItems[index],
+                        MediaQuery.of(context).size.width < 600,
+                      ),
                       childCount: visibleItems.length,
                     ),
                   ),
@@ -130,13 +128,10 @@ class _NewsScreenState extends State<NewsScreen> {
                   width: isMobile ? 36 : 40,
                   height: isMobile ? 36 : 40,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(
-                    Icons.newspaper,
-                    color: Colors.white,
-                  ),
+                  child: const Icon(Icons.newspaper, color: Colors.white),
                 ),
                 SizedBox(width: isMobile ? 8 : 12),
                 const Text(
@@ -163,7 +158,7 @@ class _NewsScreenState extends State<NewsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -208,7 +203,11 @@ class _NewsScreenState extends State<NewsScreen> {
                 SizedBox(height: isMobile ? 6 : 8),
                 Row(
                   children: [
-                    Icon(Icons.location_on, size: isMobile ? 13 : 14, color: Colors.red[400]),
+                    Icon(
+                      Icons.location_on,
+                      size: isMobile ? 13 : 14,
+                      color: Colors.red[400],
+                    ),
                     SizedBox(width: isMobile ? 3 : 4),
                     Text(
                       newsItem.district,
@@ -243,7 +242,10 @@ class _NewsScreenState extends State<NewsScreen> {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: () => _showDetailDialog(newsItem, isMobile),
-                    icon: Icon(Icons.article_outlined, size: isMobile ? 16 : 18),
+                    icon: Icon(
+                      Icons.article_outlined,
+                      size: isMobile ? 16 : 18,
+                    ),
                     label: Text(
                       'Толығырақ',
                       style: TextStyle(fontSize: isMobile ? 12 : 13),
@@ -276,7 +278,9 @@ class _NewsScreenState extends State<NewsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
                 child: Image.network(
                   newsItem.imageUrl ??
                       'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800',
@@ -288,7 +292,10 @@ class _NewsScreenState extends State<NewsScreen> {
                       height: 200,
                       color: Colors.grey[200],
                       child: const Center(
-                        child: Icon(Icons.image_not_supported, color: Colors.grey),
+                        child: Icon(
+                          Icons.image_not_supported,
+                          color: Colors.grey,
+                        ),
                       ),
                     );
                   },
@@ -309,11 +316,19 @@ class _NewsScreenState extends State<NewsScreen> {
                     SizedBox(height: isMobile ? 8 : 12),
                     Row(
                       children: [
-                        Icon(Icons.location_on, size: 16, color: Colors.red[400]),
+                        Icon(
+                          Icons.location_on,
+                          size: 16,
+                          color: Colors.red[400],
+                        ),
                         const SizedBox(width: 4),
                         Text(newsItem.district),
                         const SizedBox(width: 12),
-                        Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                        Icon(
+                          Icons.calendar_today,
+                          size: 16,
+                          color: Colors.grey[600],
+                        ),
                         const SizedBox(width: 4),
                         Text(_formatDate(newsItem.publishedAt)),
                       ],
@@ -332,7 +347,10 @@ class _NewsScreenState extends State<NewsScreen> {
                         onTap: () async {
                           final uri = Uri.tryParse(newsItem.url!);
                           if (uri != null && await canLaunchUrl(uri)) {
-                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            await launchUrl(
+                              uri,
+                              mode: LaunchMode.externalApplication,
+                            );
                           }
                         },
                         child: Row(
@@ -381,10 +399,7 @@ class _NewsScreenState extends State<NewsScreen> {
           const SizedBox(height: 8),
           Text('Қате: $message'),
           const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: _refresh,
-            child: const Text('Қайталау'),
-          ),
+          ElevatedButton(onPressed: _refresh, child: const Text('Қайталау')),
         ],
       ),
     );
@@ -420,10 +435,12 @@ class _NewsScreenState extends State<NewsScreen> {
               });
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  currentPage == index ? const Color(0xFF2E9B8E) : Colors.white,
-              foregroundColor:
-                  currentPage == index ? Colors.white : const Color(0xFF2E9B8E),
+              backgroundColor: currentPage == index
+                  ? const Color(0xFF2E9B8E)
+                  : Colors.white,
+              foregroundColor: currentPage == index
+                  ? Colors.white
+                  : const Color(0xFF2E9B8E),
               minimumSize: const Size(36, 36),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               side: const BorderSide(color: Color(0xFF2E9B8E)),

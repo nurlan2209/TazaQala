@@ -549,7 +549,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadReports() async {
     final auth = context.read<AuthProvider>();
-    final district = auth.user?.district ?? astanaDistricts.first;
+    final district = auth.user?.district;
 
     setState(() {
       _isLoadingReports = true;

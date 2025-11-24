@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:tazaqala/models/report.dart';
-import 'package:tazaqala/providers/auth_provider.dart';
 import 'package:tazaqala/services/report_service.dart';
-import 'package:tazaqala/utils/constans.dart';
 
 class AdminReportsScreen extends StatefulWidget {
-  const AdminReportsScreen({Key? key}) : super(key: key);
+  const AdminReportsScreen({super.key});
 
   @override
   State<AdminReportsScreen> createState() => _AdminReportsScreenState();
@@ -21,7 +18,6 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   bool _isLoading = true;
   bool _showMap = false;
   String _selectedFilter = 'Барлығы';
-  String? _selectedDistrict;
   String? _errorMessage;
 
   final Map<String, String?> _statusFilters = {
@@ -35,13 +31,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final auth = context.read<AuthProvider>();
-      if (!auth.isDirector) {
-        _selectedDistrict = auth.user?.district;
-      }
-      _loadReports();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadReports());
   }
 
   Future<void> _loadReports() async {
@@ -50,38 +40,18 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       _errorMessage = null;
     });
     try {
-      final auth = context.read<AuthProvider>();
-      String? district;
-      if (auth.isDirector) {
-        if (_selectedDistrict != null && _selectedDistrict != 'Барлығы') {
-          district = _selectedDistrict;
-        }
-      } else {
-        district = auth.user?.district;
-      }
-      final data = await _reportService.fetchReports(district: district);
-      setState(() {
-        _reports = data;
-      });
+      final data = await _reportService.fetchReports();
+      setState(() => _reports = data);
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-      });
+      setState(() => _errorMessage = e.toString());
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   List<ReportModel> get _filteredReports {
     final status = _statusFilters[_selectedFilter];
-    return _reports.where((report) {
-      final matchesStatus = status == null || report.status == status;
-      return matchesStatus;
-    }).toList();
+    return _reports.where((r) => status == null || r.status == status).toList();
   }
 
   Map<String, int> get _statusSummary {
@@ -91,8 +61,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       'in_progress': 0,
       'done': 0,
     };
-    for (final report in _reports) {
-      final key = report.status ?? 'new';
+    for (final r in _reports) {
+      final key = r.status;
       summary[key] = (summary[key] ?? 0) + 1;
     }
     return summary;
@@ -101,13 +71,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-
     if (_errorMessage != null) {
       return Scaffold(
         body: Center(
@@ -143,10 +109,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                   children: [
                     _buildSummaryCards(isMobile),
                     SizedBox(height: isMobile ? 16 : 20),
-                    if (_showMap)
-                      _buildMapSection(isMobile)
-                    else
-                      _buildReportList(isMobile),
+                    _showMap
+                        ? _buildMapSection(isMobile)
+                        : _buildReportList(isMobile),
                   ],
                 ),
               ),
@@ -158,9 +123,6 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   }
 
   SliverAppBar _buildHeader(bool isMobile) {
-    final auth = context.watch<AuthProvider>();
-    final canChooseDistrict = auth.isDirector;
-
     return SliverAppBar(
       expandedHeight: isMobile ? 180 : 200,
       floating: false,
@@ -190,7 +152,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                       width: isMobile ? 36 : 40,
                       height: isMobile ? 36 : 40,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
@@ -209,11 +171,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                     ),
                     const Spacer(),
                     IconButton(
-                      onPressed: () {
-                        setState(() {
-                          _showMap = !_showMap;
-                        });
-                      },
+                      onPressed: () => setState(() => _showMap = !_showMap),
                       icon: Icon(
                         _showMap ? Icons.list_alt : Icons.map_outlined,
                         color: Colors.white,
@@ -233,55 +191,6 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                     }).toList(),
                   ),
                 ),
-                if (canChooseDistrict) ...[
-                  const SizedBox(height: 12),
-                  PopupMenuButton<String>(
-                    initialValue: _selectedDistrict ?? 'Барлығы',
-                    onSelected: (value) {
-                      setState(() {
-                        _selectedDistrict = value == 'Барлығы' ? null : value;
-                      });
-                      _loadReports();
-                    },
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isMobile ? 10 : 12,
-                        vertical: isMobile ? 8 : 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _selectedDistrict ?? 'Барлығы',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: isMobile ? 12 : 13,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(Icons.keyboard_arrow_down,
-                              color: Colors.white),
-                        ],
-                      ),
-                    ),
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'Барлығы',
-                        child: Text('Барлығы'),
-                      ),
-                      ...astanaDistricts.map(
-                        (d) => PopupMenuItem(value: d, child: Text(d)),
-                      ),
-                    ],
-                  ),
-                ],
               ],
             ),
           ),
@@ -293,21 +202,21 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   Widget _buildFilterChip(String label, bool isMobile) {
     final isSelected = _selectedFilter == label;
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedFilter = label;
-        });
-      },
+      onTap: () => setState(() => _selectedFilter = label),
       child: Container(
         padding: EdgeInsets.symmetric(
           horizontal: isMobile ? 12 : 16,
           vertical: isMobile ? 6 : 8,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
+          color: isSelected
+              ? Colors.white
+              : Colors.white.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? Colors.white : Colors.white.withOpacity(0.3),
+            color: isSelected
+                ? Colors.white
+                : Colors.white.withValues(alpha: 0.3),
           ),
         ),
         child: Text(
@@ -339,7 +248,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       ),
       _SummaryCardData(
         title: 'Қаралуда',
-        value: (summary['reviewing'] ?? 0).toString(),
+        value: ((summary['reviewing'] ?? 0) + (summary['in_progress'] ?? 0))
+            .toString(),
         color: const Color(0xFF3D8FCC),
         icon: Icons.loop,
       ),
@@ -363,9 +273,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             (card) => Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: card.color.withOpacity(0.1),
+                color: card.color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: card.color.withOpacity(0.2)),
+                border: Border.all(color: card.color.withValues(alpha: 0.2)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -384,7 +294,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                     card.title,
                     style: TextStyle(
                       fontSize: isMobile ? 12 : 13,
-                      color: card.color.withOpacity(0.9),
+                      color: card.color.withValues(alpha: 0.9),
                     ),
                   ),
                 ],
@@ -395,12 +305,19 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     );
   }
 
+  LatLng _initialCameraTarget() {
+    if (_filteredReports.isNotEmpty) {
+      final first = _filteredReports.first;
+      return LatLng(first.lat, first.lng);
+    }
+    return const LatLng(51.1694, 71.4491);
+  }
+
   Widget _buildMapSection(bool isMobile) {
     if (_filteredReports.isEmpty) {
       return _buildEmptyState();
     }
 
-    final initial = _filteredReports.first;
     final markers = _filteredReports.map((report) {
       return Marker(
         markerId: MarkerId(report.id),
@@ -421,7 +338,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -431,7 +348,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         borderRadius: BorderRadius.circular(16),
         child: GoogleMap(
           initialCameraPosition: CameraPosition(
-            target: LatLng(initial.lat, initial.lng),
+            target: _initialCameraTarget(),
             zoom: 12,
           ),
           markers: markers,
@@ -455,7 +372,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -476,15 +393,15 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.location_on,
-                          size: 16, color: Colors.grey[600]),
+                      Icon(
+                        Icons.location_on,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         report.district ?? '',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       ),
                       const SizedBox(width: 12),
                       Icon(Icons.label, size: 16, color: Colors.grey[600]),
@@ -494,8 +411,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    DateFormat('dd.MM.yyyy HH:mm')
-                        .format(report.createdAt.toLocal()),
+                    DateFormat(
+                      'dd.MM.yyyy HH:mm',
+                    ).format(report.createdAt.toLocal()),
                     style: TextStyle(color: Colors.grey[500], fontSize: 12),
                   ),
                 ],
@@ -540,7 +458,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -565,20 +483,12 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   Future<void> _updateStatus(ReportModel report, String status) async {
     try {
       await _reportService.updateReport(id: report.id, status: status);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Статус "${report.category}" жаңартылды'),
-          ),
-        );
-      }
-      await _loadReports();
+      _loadReports();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Қате: $e')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Қате: $e')));
     }
   }
 
@@ -608,17 +518,15 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       case 'reviewing':
         return const Color(0xFF3D8FCC);
       default:
-        return const Color(0xFFFFC107);
+        return Colors.grey;
     }
   }
 
-  double _colorHue(Color color) {
-    return HSVColor.fromColor(color).hue;
-  }
+  double _colorHue(Color color) => HSVColor.fromColor(color).hue;
 }
 
 class _SummaryCardData {
-  _SummaryCardData({
+  const _SummaryCardData({
     required this.title,
     required this.value,
     required this.color,

@@ -5,7 +5,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:tazaqala/services/report_service.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:tazaqala/utils/district_polygons.dart';
 import 'package:provider/provider.dart';
 import 'package:tazaqala/providers/auth_provider.dart';
 
@@ -54,10 +53,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
     Position position = await Geolocator.getCurrentPosition();
     if (!mounted) return;
-    final district = context.read<AuthProvider>().user?.district;
-    final districtCenter = district != null ? DistrictPolygons.getCenter(district) : null;
-
-    final initial = districtCenter ?? LatLng(position.latitude, position.longitude);
+    final initial = LatLng(position.latitude, position.longitude);
     if (mounted) {
       setState(() {
         _selectedLatLng = initial;
@@ -111,7 +107,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         _descriptionController.text.isEmpty ||
         _selectedLatLng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Барлық өрістер мен локацияны толтырыңыз')),
+        const SnackBar(
+          content: Text('Барлық өрістер мен локацияны толтырыңыз'),
+        ),
       );
       return;
     }
@@ -130,15 +128,15 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Шағым сәтті жіберілді!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Шағым сәтті жіберілді!')));
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Қате: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Қате: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -150,9 +148,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final district = context.watch<AuthProvider>().user?.district;
-    final polygon = district != null ? DistrictPolygons.polygons[district] : null;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Хабарлама жасау'),
@@ -175,29 +170,44 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 ),
                 child: _imageFile != null
                     ? ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.file(_imageFile!, fit: BoxFit.cover),
-                )
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(_imageFile!, fit: BoxFit.cover),
+                      )
                     : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add_a_photo, size: 48, color: Colors.grey[600]),
-                    const SizedBox(height: 8),
-                    Text('Сурет қосу', style: TextStyle(color: Colors.grey[600])),
-                  ],
-                ),
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.add_a_photo,
+                            size: 48,
+                            color: Colors.grey[600],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Сурет қосу',
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
               ),
             ),
             const SizedBox(height: 24),
 
             // Категория таңдау
-            const Text('Категория', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text(
+              'Категория',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-              value: _selectedCategory,
+            DropdownButtonFormField<String>(
+              initialValue: _selectedCategory,
               decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
               ),
               hint: const Text('Категорияны таңдаңыз'),
               items: _categories.map((category) {
@@ -212,13 +222,18 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
             const SizedBox(height: 24),
 
             // Сипаттама
-            const Text('Сипаттама', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text(
+              'Сипаттама',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             TextField(
               controller: _descriptionController,
               maxLines: 5,
               decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 hintText: 'Мәселені сипаттаңыз...',
                 contentPadding: const EdgeInsets.all(16),
               ),
@@ -226,7 +241,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
             const SizedBox(height: 24),
 
             // Локация картасы
-            const Text('Орналасқан жерді таңдаңыз', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text(
+              'Орналасқан жерді таңдаңыз',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             Container(
               height: 280,
@@ -239,16 +257,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 child: FlutterMap(
                   mapController: _mapController,
                   options: MapOptions(
-                    initialCenter: _selectedLatLng ?? (polygon != null ? DistrictPolygons.getCenter(district!) ?? const LatLng(51.1694, 71.4491) : const LatLng(51.1694, 71.4491)),
+                    initialCenter:
+                        _selectedLatLng ?? const LatLng(51.1694, 71.4491),
                     initialZoom: 13,
                     onTap: (tapPos, point) {
-                      final allowed = _isInsideDistrict(point, polygon);
-                      if (!allowed) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Тек өз ауданыңыздың ішінде нүкте таңдаңыз')),
-                        );
-                        return;
-                      }
                       setState(() {
                         _selectedLatLng = point;
                       });
@@ -256,20 +268,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.tazaqala',
                     ),
-                    if (polygon != null)
-                      PolygonLayer(
-                        polygons: [
-                          Polygon(
-                            points: polygon,
-                            color: Colors.green.withOpacity(0.15),
-                            borderColor: Colors.green,
-                            borderStrokeWidth: 2,
-                          ),
-                        ],
-                      ),
                     if (_selectedLatLng != null)
                       MarkerLayer(
                         markers: [
@@ -277,7 +279,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                             point: _selectedLatLng!,
                             width: 40,
                             height: 40,
-                            child: const Icon(Icons.location_on, color: Colors.red, size: 36),
+                            child: const Icon(
+                              Icons.location_on,
+                              color: Colors.red,
+                              size: 36,
+                            ),
                           ),
                         ],
                       ),
@@ -291,11 +297,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 'Таңдалған нүкте: ${_selectedLatLng!.latitude.toStringAsFixed(4)}, ${_selectedLatLng!.longitude.toStringAsFixed(4)}',
                 style: const TextStyle(fontSize: 12, color: Colors.black54),
               ),
-            if (polygon != null)
-              Text(
-                'Аудан: $district',
-                style: const TextStyle(fontSize: 12, color: Colors.black54),
-              ),
             const SizedBox(height: 24),
 
             // Жіберу батырмасы
@@ -304,7 +305,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green[700],
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: _isSubmitting
                   ? const SizedBox(
@@ -317,7 +320,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     )
                   : const Text(
                       'Жіберу',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
             ),
           ],
@@ -330,21 +336,5 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   void dispose() {
     _descriptionController.dispose();
     super.dispose();
-  }
-
-  bool _isInsideDistrict(LatLng point, List<LatLng>? polygon) {
-    if (polygon == null || polygon.length < 3) return true;
-    bool inside = false;
-    for (int i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-      final xi = polygon[i].latitude;
-      final yi = polygon[i].longitude;
-      final xj = polygon[j].latitude;
-      final yj = polygon[j].longitude;
-
-      final intersect = ((yi > point.longitude) != (yj > point.longitude)) &&
-          (point.latitude < (xj - xi) * (point.longitude - yi) / (yj - yi) + xi);
-      if (intersect) inside = !inside;
-    }
-    return inside;
   }
 }

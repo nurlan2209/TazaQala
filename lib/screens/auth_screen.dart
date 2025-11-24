@@ -514,7 +514,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
-  String? _selectedDistrict;
   bool _obscurePass = true;
   bool _obscureConfirm = true;
 
@@ -587,7 +586,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       name: name,
       email: email,
       password: pass,
-      district: _selectedDistrict,
+      district: null,
     );
     if (!ok) {
       _showError(auth.errorMessage ?? 'Қате пайда болды');
@@ -663,33 +662,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   hint: 'example@mail.com',
                   icon: Icons.email_outlined,
                 ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Аудан',
-                style: TextStyle(
-                  fontSize: isMobile ? 13 : 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[700],
-                ),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: _selectedDistrict,
-                decoration: _inputDecoration(
-                  isMobile: isMobile,
-                  hint: 'Ауданды таңдаңыз',
-                  icon: Icons.place_outlined,
-                ),
-                items: astanaDistricts
-                    .map(
-                      (d) => DropdownMenuItem<String>(
-                        value: d,
-                        child: Text(d),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedDistrict = v),
               ),
               const SizedBox(height: 14),
               Text(

@@ -5,10 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:tazaqala/models/report.dart';
 import 'package:tazaqala/providers/auth_provider.dart';
 import 'package:tazaqala/services/report_service.dart';
-import 'package:tazaqala/utils/constans.dart';
 
 class ReportsScreen extends StatefulWidget {
-  const ReportsScreen({Key? key}) : super(key: key);
+  const ReportsScreen({super.key});
 
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
@@ -19,14 +18,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
   static const LatLng _astanaCenter = LatLng(51.1694, 71.4491);
 
   String selectedFilter = 'Барлығы';
-  String? selectedDistrict;
-  List<String> districtOptions = ['Барлығы'];
   bool showMap = false;
   bool _isLoading = false;
   bool _initialized = false;
   String? _errorMessage;
   List<ReportModel> _reports = [];
-  Set<Polygon> _districtPolygons = {};
 
   final List<String> filters = ['Барлығы', 'Шешілді', 'Күтуде'];
 
@@ -38,11 +34,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
       if (selectedFilter == 'Күтуде' && report.status == 'done') {
         return false;
       }
-      if (selectedDistrict != null &&
-          selectedDistrict!.isNotEmpty &&
-          selectedDistrict != 'Барлығы') {
-        return report.district == selectedDistrict;
-      }
       return true;
     }).toList();
   }
@@ -51,17 +42,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_initialized) {
-      final authProvider = context.read<AuthProvider>();
-      if (authProvider.isDirector) {
-        districtOptions = ['Барлығы', ...astanaDistricts];
-        selectedDistrict = 'Барлығы';
-      } else {
-        final userDistrict =
-            authProvider.user?.district ?? astanaDistricts.first;
-        districtOptions = [userDistrict];
-        selectedDistrict = userDistrict;
-      }
-      _districtPolygons = _buildPolygons();
       _initialized = true;
       _loadReports();
     }
@@ -75,16 +55,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     });
 
     try {
-      final authProvider = context.read<AuthProvider>();
-      final queryDistrict = authProvider.isDirector
-          ? (selectedDistrict == 'Барлығы' ? null : selectedDistrict)
-          : authProvider.user?.district;
-
-      final data = await _reportService.fetchReports(district: queryDistrict);
+      final data = await _reportService.fetchReports();
       if (!mounted) return;
       setState(() {
         _reports = data;
-        _districtPolygons = _buildPolygons();
       });
     } catch (err) {
       if (!mounted) return;
@@ -104,8 +78,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
-    final authProvider = context.watch<AuthProvider>();
-    final canChangeDistrict = authProvider.isDirector;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -142,7 +114,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             width: isMobile ? 36 : 40,
                             height: isMobile ? 36 : 40,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
+                              color: Colors.white.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
@@ -174,8 +146,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           spacing: 10,
                           runSpacing: 10,
                           children: [
-                            ...filters.map((filter) => _buildFilterChip(filter, isMobile)),
-                            _buildDistrictSelector(isMobile, canChangeDistrict),
+                            ...filters.map(
+                              (filter) => _buildFilterChip(filter, isMobile),
+                            ),
+                            const SizedBox.shrink(),
                             _buildMapToggle(isMobile),
                           ],
                         ),
@@ -202,7 +176,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -212,8 +186,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   borderRadius: BorderRadius.circular(16),
                   child: GoogleMap(
                     initialCameraPosition: CameraPosition(
-                      target: _getInitialCameraTarget(),
-                      zoom: selectedDistrict == 'Барлығы' ? 11.5 : 13,
+                      target: _initialCameraTarget(),
+                      zoom: 12,
                     ),
                     markers: filteredReports.map((report) {
                       return Marker(
@@ -225,7 +199,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ),
                       );
                     }).toSet(),
-                    polygons: _districtPolygons,
                     myLocationButtonEnabled: true,
                     zoomControlsEnabled: true,
                   ),
@@ -236,15 +209,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
             SliverPadding(
               padding: EdgeInsets.all(isMobile ? 12 : 16),
               sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    return _buildReportCard(
-                      filteredReports[index],
-                      isMobile,
-                    );
-                  },
-                  childCount: filteredReports.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  return _buildReportCard(filteredReports[index], isMobile);
+                }, childCount: filteredReports.length),
               ),
             ),
         ],
@@ -266,10 +233,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
           vertical: isMobile ? 9 : 11,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
+          color: isSelected
+              ? Colors.white
+              : Colors.white.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? Colors.white : Colors.white.withOpacity(0.3),
+            color: isSelected
+                ? Colors.white
+                : Colors.white.withValues(alpha: 0.3),
           ),
         ),
         child: Text(
@@ -284,40 +255,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildDistrictSelector(bool isMobile, bool canChangeDistrict) {
-    final content = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Flexible(
-          child: Text(
-            selectedDistrict ?? 'Аудан таңдалмады',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: isMobile ? 11 : 13,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 14 : 16,
-        vertical: isMobile ? 9 : 11,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.3),
-        ),
-      ),
-      constraints: BoxConstraints(
-        minWidth: isMobile ? 180 : 210,
-      ),
-      child: content,
-    );
+  LatLng _initialCameraTarget() {
+    if (filteredReports.isNotEmpty) {
+      return LatLng(filteredReports.first.lat, filteredReports.first.lng);
+    }
+    return _astanaCenter;
   }
 
   Widget _buildMapToggle(bool isMobile) {
@@ -333,11 +275,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
           vertical: isMobile ? 8 : 10,
         ),
         decoration: BoxDecoration(
-          color: showMap ? Colors.white : Colors.white.withOpacity(0.2),
+          color: showMap ? Colors.white : Colors.white.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -392,7 +332,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               backgroundColor: const Color(0xFF2E9B8E),
             ),
             child: const Text('Қайталау'),
-          )
+          ),
         ],
       ),
     );
@@ -405,10 +345,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         children: [
           Icon(Icons.inbox, size: isMobile ? 48 : 56, color: Colors.grey[400]),
           const SizedBox(height: 12),
-          const Text(
-            'Бұл ауданда шағымдар табылмады',
-            textAlign: TextAlign.center,
-          ),
+          const Text('Шағымдар табылмады', textAlign: TextAlign.center),
         ],
       ),
     );
@@ -443,74 +380,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return DateFormat('dd.MM.yyyy').format(date);
   }
 
-  Set<Polygon> _buildPolygons() {
-    final polygons = <Polygon>{};
-    final selection = selectedDistrict;
-    if (selection == null || selection.isEmpty || selection == 'Барлығы') {
-      astanaDistrictPolygons.forEach((district, rawPoints) {
-        final polygon = _createPolygon(district, rawPoints);
-        if (polygon != null) polygons.add(polygon);
-      });
-    } else {
-      final polygon =
-          _createPolygon(selection, astanaDistrictPolygons[selection]);
-      if (polygon != null) polygons.add(polygon);
-    }
-    return polygons;
-  }
-
-  Polygon? _createPolygon(String district, List<List<double>>? rawPoints) {
-    if (rawPoints == null || rawPoints.length < 3) return null;
-    final points =
-        rawPoints.map((entry) => LatLng(entry[0], entry[1])).toList();
-    return Polygon(
-      polygonId: PolygonId(district),
-      points: points,
-      strokeColor: const Color(0xFF2E9B8E),
-      fillColor: const Color(0x332E9B8E),
-      strokeWidth: 2,
-    );
-  }
-
-  LatLng _getInitialCameraTarget() {
-    if (filteredReports.isNotEmpty) {
-      return LatLng(filteredReports.first.lat, filteredReports.first.lng);
-    }
-
-    if (_districtPolygons.isNotEmpty) {
-      final polygon = _districtPolygons.first;
-      if (polygon.points.isNotEmpty) {
-        return _calculateCentroid(polygon.points);
-      }
-    }
-
-    final fallbackDistrict = selectedDistrict == 'Барлығы'
-        ? astanaDistricts.first
-        : selectedDistrict;
-    final rawPoints = astanaDistrictPolygons[fallbackDistrict];
-    if (rawPoints != null && rawPoints.length >= 3) {
-      final points =
-          rawPoints.map((entry) => LatLng(entry[0], entry[1])).toList();
-      return _calculateCentroid(points);
-    }
-
-    return _astanaCenter;
-  }
-
-  LatLng _calculateCentroid(List<LatLng> points) {
-    double lat = 0;
-    double lng = 0;
-    for (final point in points) {
-      lat += point.latitude;
-      lng += point.longitude;
-    }
-    return LatLng(lat / points.length, lng / points.length);
-  }
-
   Widget _buildReportCard(ReportModel report, bool isMobile) {
-    final authProvider = context.read<AuthProvider>();
-    final canManage = authProvider.isAdmin || authProvider.isDirector;
-
+    final auth = context.read<AuthProvider>();
+    final canManage = auth.isAdmin;
     return Container(
       margin: EdgeInsets.only(bottom: isMobile ? 12 : 16),
       decoration: BoxDecoration(
@@ -518,7 +390,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -529,8 +401,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
         children: [
           if (report.imageUrl.isNotEmpty)
             ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
               child: Image.network(
                 report.imageUrl,
                 width: double.infinity,
@@ -605,10 +478,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 SizedBox(height: isMobile ? 10 : 12),
                 Text(
                   report.description,
-                  style: TextStyle(
-                    fontSize: isMobile ? 13 : 14,
-                    height: 1.4,
-                  ),
+                  style: TextStyle(fontSize: isMobile ? 13 : 14, height: 1.4),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -657,16 +527,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return OutlinedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: isMobile ? 16 : 18),
-      label: Text(
-        label,
-        style: TextStyle(fontSize: isMobile ? 11 : 12),
-      ),
+      label: Text(label, style: TextStyle(fontSize: isMobile ? 11 : 12)),
       style: OutlinedButton.styleFrom(
         foregroundColor: color,
         side: BorderSide(color: color),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         padding: EdgeInsets.symmetric(
           horizontal: isMobile ? 10 : 12,
           vertical: isMobile ? 6 : 8,
@@ -739,12 +604,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     String? selectedStatus = report.status;
     final categoryController = TextEditingController(text: report.category);
-    final descriptionController =
-        TextEditingController(text: report.description);
-    final latController =
-        TextEditingController(text: report.lat.toStringAsFixed(6));
-    final lngController =
-        TextEditingController(text: report.lng.toStringAsFixed(6));
+    final descriptionController = TextEditingController(
+      text: report.description,
+    );
+    final latController = TextEditingController(
+      text: report.lat.toStringAsFixed(6),
+    );
+    final lngController = TextEditingController(
+      text: report.lng.toStringAsFixed(6),
+    );
     bool isSaving = false;
 
     showModalBottomSheet(
@@ -783,9 +651,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Қате: $e')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Қате: $e')));
                 }
               } finally {
                 if (mounted) {
@@ -827,7 +695,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: selectedStatus,
+                      initialValue: selectedStatus,
                       items: statusOptions
                           .map(
                             (option) => DropdownMenuItem<String>(
@@ -917,20 +785,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (badgeColor != null) {
       return Row(
         children: [
-          Text(
-            '$label: ',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
+          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w600)),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: badgeColor,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              value,
-              style: const TextStyle(color: Colors.white),
-            ),
+            child: Text(value, style: const TextStyle(color: Colors.white)),
           ),
         ],
       );
