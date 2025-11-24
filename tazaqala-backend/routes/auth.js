@@ -3,10 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import User from "../models/User.js";
-import {
-  sendVerificationEmail,
-  sendPasswordResetEmail
-} from "../utils/emailService.js";
+import { sendPasswordResetEmail } from "../utils/emailService.js";
 
 const router = express.Router();
 
@@ -35,20 +32,17 @@ router.post("/register", async (req, res) => {
     }
 
     const hash = await bcrypt.hash(password, 10);
-    const verificationToken = generateToken();
-    const expires = Date.now() + 1000 * 60 * 60 * 24; // 24h
 
     const user = new User({
       name,
       email,
       password: hash,
       role: "client",
-      emailVerificationToken: verificationToken,
-      emailVerificationExpires: expires
+      emailVerified: true,
+      emailVerificationToken: undefined,
+      emailVerificationExpires: undefined
     });
     await user.save();
-
-    await sendVerificationEmail(email, verificationToken);
 
     const token = jwt.sign(
       {
@@ -102,64 +96,6 @@ router.post("/login", async (req, res) => {
     res.json({ token, user: buildAuthResponse(user) });
   } catch (err) {
     console.error("Login error:", err);
-    res.status(500).json({ message: "Сервер қатесі" });
-  }
-});
-
-// Verify email
-router.get("/verify-email", async (req, res) => {
-  try {
-    const { token } = req.query;
-    if (!token) {
-      return res.status(400).json({ message: "Token табылмады" });
-    }
-
-    const user = await User.findOne({
-      emailVerificationToken: token,
-      emailVerificationExpires: { $gt: Date.now() }
-    });
-
-    if (!user) {
-      return res.status(400).json({ message: "Token жарамсыз немесе мерзімі өтті" });
-    }
-
-    user.emailVerified = true;
-    user.emailVerificationToken = undefined;
-    user.emailVerificationExpires = undefined;
-    await user.save();
-
-    res.json({ message: "Email расталды" });
-  } catch (err) {
-    console.error("Verify email error:", err);
-    res.status(500).json({ message: "Сервер қатесі" });
-  }
-});
-
-// Resend verification
-router.post("/resend-verification", async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ message: "Email енгізіңіз" });
-    }
-
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: "User not found" });
-    }
-    if (user.emailVerified) {
-      return res.status(400).json({ message: "Email бұрын расталған" });
-    }
-
-    const token = generateNumericCode();
-    user.emailVerificationToken = token;
-    user.emailVerificationExpires = Date.now() + 1000 * 60 * 60 * 24;
-    await user.save();
-
-    await sendVerificationEmail(email, token);
-    res.json({ message: "Растау сілтемесі қайта жіберілді" });
-  } catch (err) {
-    console.error("Resend verification error:", err);
     res.status(500).json({ message: "Сервер қатесі" });
   }
 });

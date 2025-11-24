@@ -16,6 +16,9 @@ const transporter = nodemailer.createTransport({
   host: SMTP_HOST,
   port: Number(SMTP_PORT) || 587,
   secure: SMTP_SECURE === "true",
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
   auth: SMTP_USER
     ? {
         user: SMTP_USER,
@@ -27,6 +30,10 @@ const transporter = nodemailer.createTransport({
 const baseAppUrl = APP_URL || "http://localhost:5001";
 
 const safeSend = async (options) => {
+  if (process.env.DISABLE_EMAIL === "true") {
+    console.warn("Email sending disabled via DISABLE_EMAIL");
+    return;
+  }
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
     console.warn(
       "SMTP credentials not configured, skip email",
@@ -35,10 +42,16 @@ const safeSend = async (options) => {
     return;
   }
   try {
-    await transporter.sendMail({
+    const sendPromise = transporter.sendMail({
       from: SMTP_USER,
       ...options
     });
+    await Promise.race([
+      sendPromise,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Email send timeout")), 10000)
+      )
+    ]);
   } catch (err) {
     console.error("Email send error:", err?.message || err);
   }
