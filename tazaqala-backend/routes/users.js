@@ -1,7 +1,6 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import User from "../models/User.js";
-import DISTRICTS from "../config/districts.js";
 import { auth, authorizeRoles } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -16,16 +15,16 @@ const sanitizeUser = (user) => {
   return obj;
 };
 
-// List admins grouped by district
+// List staff users
 router.get(
   "/admins",
   auth,
-  authorizeRoles("director"),
+  authorizeRoles("admin"),
   async (req, res) => {
     try {
-      const admins = await User.find({ role: "admin" })
+      const admins = await User.find({ role: "staff" })
         .select("-password")
-        .sort({ district: 1, name: 1 });
+        .sort({ name: 1 });
       res.json(admins);
     } catch (err) {
       console.error("Fetch admins error:", err);
@@ -34,22 +33,18 @@ router.get(
   }
 );
 
-// Create new admin for district
+// Create new staff user
 router.post(
   "/admins",
   auth,
-  authorizeRoles("director"),
+  authorizeRoles("admin"),
   async (req, res) => {
     try {
-      const { name, email, password, district } = req.body;
-      if (!name || !email || !password || !district) {
+      const { name, email, password } = req.body;
+      if (!name || !email || !password) {
         return res
           .status(400)
           .json({ message: "Барлық өрістерді толтырыңыз" });
-      }
-
-      if (!DISTRICTS.includes(district)) {
-        return res.status(400).json({ message: "Аудан дұрыс емес" });
       }
 
       const exist = await User.findOne({ email });
@@ -62,8 +57,7 @@ router.post(
         name,
         email,
         password: hash,
-        role: "admin",
-        district,
+        role: "staff",
         createdBy: req.user.id
       });
 
@@ -78,15 +72,15 @@ router.post(
   }
 );
 
-// Update admin info / reassign district / reset password
+// Update staff info / reset password
 router.patch(
   "/admins/:id",
   auth,
-  authorizeRoles("director"),
+  authorizeRoles("admin"),
   async (req, res) => {
     try {
-      const { name, email, password, district, isActive } = req.body;
-      const admin = await User.findOne({ _id: req.params.id, role: "admin" });
+      const { name, email, password, isActive } = req.body;
+      const admin = await User.findOne({ _id: req.params.id, role: "staff" });
 
       if (!admin) {
         return res.status(404).json({ message: "Админ табылмады" });
@@ -102,13 +96,6 @@ router.patch(
 
       if (name) admin.name = name;
       if (typeof isActive === "boolean") admin.isActive = isActive;
-
-      if (district) {
-        if (!DISTRICTS.includes(district)) {
-          return res.status(400).json({ message: "Аудан дұрыс емес" });
-        }
-        admin.district = district;
-      }
 
       if (password) {
         admin.password = await bcrypt.hash(password, 10);

@@ -4,7 +4,6 @@ import cloudinary from "../utils/cloudinary.js";
 import Report from "../models/Report.js";
 import User from "../models/User.js";
 import { auth, authorizeRoles } from "../middleware/auth.js";
-import DISTRICTS from "../config/districts.js";
 import { sendReportStatusEmail } from "../utils/emailService.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -21,8 +20,10 @@ const findReportAndCheckAccess = async (reportId, user) => {
     return { error: "Report not found" };
   }
 
-  if (user.role === "admin" && report.district !== user.district) {
-    return { error: "Бұл ауданға рұқсат жоқ", status: 403 };
+  if (user.role === "staff") {
+    if (!report.assignedTo || report.assignedTo.toString() !== user.id) {
+      return { error: "Бұл есеп сізге бекітілмеген", status: 403 };
+    }
   }
 
   return { report };
@@ -47,21 +48,6 @@ router.post("/create", auth, upload.single("image"), async (req, res) => {
       return res.status(400).json({ message: "Координаталар дұрыс емес" });
     }
 
-    let district = req.user.district;
-    if (req.user.role === "director") {
-      const requestedDistrict = req.body.district;
-      if (!requestedDistrict || !DISTRICTS.includes(requestedDistrict)) {
-        return res.status(400).json({ message: "Аудан таңдалмады" });
-      }
-      district = requestedDistrict;
-    }
-
-    if (!district) {
-      return res
-        .status(400)
-        .json({ message: "Аудан ақпаратын анықтау мүмкін болмады" });
-    }
-
     const result = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         { folder: "tazaqala" },
@@ -75,11 +61,11 @@ router.post("/create", auth, upload.single("image"), async (req, res) => {
 
     const report = new Report({
       userId: req.user.id,
-      district,
       category,
       description,
       location: { lat, lng },
-      imageUrl: result.secure_url
+      imageUrl: result.secure_url,
+      assignedTo: null
     });
 
     await report.save();
@@ -95,17 +81,11 @@ router.post("/create", auth, upload.single("image"), async (req, res) => {
 // --------------------
 router.get("/all", auth, async (req, res) => {
   try {
-    const { district: districtQuery } = req.query;
-
     let filter = {};
-    if (
-      districtQuery &&
-      typeof districtQuery === "string" &&
-      DISTRICTS.includes(districtQuery)
-    ) {
-      filter.district = districtQuery;
-    } else if (req.user.role === "client" || req.user.role === "admin") {
-      filter.district = req.user.district;
+    if (req.user.role === "staff") {
+      filter.assignedTo = req.user.id;
+    } else if (req.user.role === "client") {
+      filter.userId = req.user.id;
     }
 
     const reports = await Report.find(filter).sort({ createdAt: -1 });
@@ -121,9 +101,9 @@ router.get("/all", auth, async (req, res) => {
 // --------------------
 router.get("/mine", auth, async (req, res) => {
   try {
-    const reports = await Report.find({ userId: req.user.id })
-      .where({ district: req.user.district })
-      .sort({ createdAt: -1 });
+    const reports = await Report.find({ userId: req.user.id }).sort({
+      createdAt: -1
+    });
     res.json(reports);
   } catch (err) {
     console.error("Fetch my reports error:", err);
@@ -137,7 +117,7 @@ router.get("/mine", auth, async (req, res) => {
 router.patch(
   "/update/:id",
   auth,
-  authorizeRoles("admin", "director"),
+  authorizeRoles("admin", "staff"),
   async (req, res) => {
     try {
       const { report, error, status } = await findReportAndCheckAccess(
@@ -148,13 +128,20 @@ router.patch(
         return res.status(status || 404).json({ message: error });
       }
 
-      const { category, description, status: newStatus } = req.body;
+      const { category, description, status: newStatus, assignedTo } = req.body;
       const lat = req.body.lat ? parseCoordinate(req.body.lat) : null;
       const lng = req.body.lng ? parseCoordinate(req.body.lng) : null;
 
       if (category) report.category = category;
       if (description) report.description = description;
       if (newStatus) report.status = newStatus;
+      if (req.user.role === "admin" && assignedTo) {
+        const staffUser = await User.findById(assignedTo);
+        if (!staffUser || staffUser.role !== "staff") {
+          return res.status(400).json({ message: "Қате қызметкер" });
+        }
+        report.assignedTo = assignedTo;
+      }
       if (lat !== null && lng !== null) {
         report.location = { lat, lng };
       }
@@ -188,7 +175,7 @@ router.patch(
 router.delete(
   "/delete/:id",
   auth,
-  authorizeRoles("admin", "director"),
+  authorizeRoles("admin"),
   async (req, res) => {
     try {
       const { report, error, status } = await findReportAndCheckAccess(
@@ -214,14 +201,10 @@ router.delete(
 router.get(
   "/insights/ai",
   auth,
-  authorizeRoles("admin", "director"),
+  authorizeRoles("admin"),
   async (req, res) => {
     try {
-      const district =
-        req.user.role === "admin" ? req.user.district : req.query.district;
-
-      const filter = district ? { district } : {};
-      const reports = await Report.find(filter).sort({ createdAt: -1 });
+      const reports = await Report.find({}).sort({ createdAt: -1 });
 
       const statsContext = buildStatsContext(reports);
       const aiPayload = await generateAiInsights(statsContext);
@@ -233,53 +216,6 @@ router.get(
       });
     } catch (err) {
       console.error("AI insights error:", err);
-      res.status(500).json({ message: "Сервер қатесі" });
-    }
-  }
-);
-
-// --------------------
-// District stats (director)
-// --------------------
-router.get(
-  "/stats/districts",
-  auth,
-  authorizeRoles("director"),
-  async (req, res) => {
-    try {
-      const rawStats = await Report.aggregate([
-        {
-          $group: {
-            _id: { district: "$district", status: "$status" },
-            count: { $sum: 1 }
-          }
-        }
-      ]);
-
-      const statsMap = new Map();
-      rawStats.forEach((item) => {
-        const district = item._id?.district || "Белгісіз";
-        const status = item._id?.status || "unknown";
-        if (!statsMap.has(district)) {
-          statsMap.set(district, { total: 0, statusCounts: {} });
-        }
-        const bucket = statsMap.get(district);
-        bucket.total += item.count;
-        bucket.statusCounts[status] = item.count;
-      });
-
-      const response = DISTRICTS.map((district) => {
-        const bucket = statsMap.get(district);
-        return {
-          district,
-          total: bucket?.total || 0,
-          statusCounts: bucket?.statusCounts || {}
-        };
-      });
-
-      res.json(response);
-    } catch (err) {
-      console.error("District stats error:", err);
       res.status(500).json({ message: "Сервер қатесі" });
     }
   }

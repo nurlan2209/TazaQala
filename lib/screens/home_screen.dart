@@ -41,10 +41,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
-    final isPrivileged = authProvider.isAdmin || authProvider.isDirector;
+    final isAdmin = authProvider.isAdmin;
+    final isPrivileged = isAdmin;
 
     // Reset index if role changed and current tab is out of range
-    final maxIndex = isPrivileged ? 2 : 4;
+    final maxIndex = isAdmin ? 3 : 4;
     if (_currentIndex > maxIndex) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -72,10 +73,8 @@ class _HomeScreenState extends State<HomeScreen> {
           currentIndex: safeIndex,
           onTap: (index) {
             final auth = context.read<AuthProvider>();
-            final isDirector = auth.isDirector;
-            final isAdmin = auth.isAdmin;
-            final isPriv = isAdmin || isDirector;
-            final profileTabIndex = isPriv ? 2 : 3;
+            final isAdm = auth.isAdmin;
+            final profileTabIndex = isAdm ? 3 : 4;
 
             if (index == profileTabIndex && !auth.isAuthenticated) {
               Navigator.push(
@@ -95,19 +94,21 @@ class _HomeScreenState extends State<HomeScreen> {
           unselectedFontSize: 12,
           backgroundColor: Colors.white,
           elevation: 0,
-          items: isPrivileged
-              ? [
-                  const BottomNavigationBarItem(
+          items: isAdmin
+              ? const [
+                  BottomNavigationBarItem(
                     icon: Icon(Icons.dashboard),
                     label: 'Басты бет',
                   ),
                   BottomNavigationBarItem(
-                    icon: authProvider.isDirector
-                        ? const Icon(Icons.admin_panel_settings)
-                        : const Icon(Icons.description),
-                    label: authProvider.isDirector ? 'Админдер' : 'Шағымдар',
+                    icon: Icon(Icons.group),
+                    label: 'Қызметкерлер',
                   ),
-                  const BottomNavigationBarItem(
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.description),
+                    label: 'Шағымдар',
+                  ),
+                  BottomNavigationBarItem(
                     icon: Icon(Icons.person),
                     label: 'Профиль',
                   ),
@@ -126,12 +127,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: 'Жаңалықтар',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.person),
-                    label: 'Профиль',
-                  ),
-                  BottomNavigationBarItem(
                     icon: Icon(Icons.help_outline),
                     label: 'Көмек',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.person),
+                    label: 'Профиль',
                   ),
                 ],
         ),
@@ -142,16 +143,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _getPageByIndex(int index) {
     final auth = context.watch<AuthProvider>();
     final isAdmin = auth.isAdmin;
-    final isDirector = auth.isDirector;
-    final isPrivileged = isAdmin || isDirector;
+    final isPrivileged = isAdmin;
 
     if (isPrivileged) {
       switch (index) {
         case 0:
           return AdminDashboardScreen();
         case 1:
-          return isDirector ? const DirectorAdminsScreen() : ReportsScreen();
+          return const StaffManagementScreen();
         case 2:
+          return ReportsScreen();
+        case 3:
           return const ProfileScreen();
         default:
           return AdminDashboardScreen();
@@ -166,9 +168,9 @@ class _HomeScreenState extends State<HomeScreen> {
       case 2:
         return NewsScreen();
       case 3:
-        return const ProfileScreen();
-      case 4:
         return HelpScreen();
+      case 4:
+        return const ProfileScreen();
     }
     return _buildMainPage();
   }

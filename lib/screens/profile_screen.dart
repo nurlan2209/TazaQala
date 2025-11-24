@@ -300,7 +300,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onTap: () => _showEditProfileBottomSheet(userName, userEmail),
                     isMobile: isMobile,
                   ),
-                  if (!isDirector)
+                  if (!isDirector && !isAdmin)
                     _buildMenuItem(
                       icon: Icons.description_outlined,
                       title: 'Менің шағымдарым',
@@ -320,21 +320,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onTap: () {},
                     isMobile: isMobile,
                   ),
-                  if (isAdmin)
-                    _buildMenuItem(
-                      icon: Icons.admin_panel_settings,
-                      title: 'Админ панелі',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const AdminDashboardScreen(),
-                          ),
-                        );
-                      },
-                      isMobile: isMobile,
-                    ),
-                  if (!isDirector)
+                  if (!isDirector && !isAdmin)
                     _buildMenuItem(
                       icon: Icons.info_outline,
                       title: 'Қосымша туралы',

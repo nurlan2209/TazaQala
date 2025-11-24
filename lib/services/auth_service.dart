@@ -34,7 +34,7 @@ class AuthService {
     required String name,
     required String email,
     required String password,
-    required String district,
+    String? district,
   }) async {
     final response = await _apiService.post(
       '/auth/register',
@@ -42,7 +42,7 @@ class AuthService {
         'name': name,
         'email': email,
         'password': password,
-        'district': district,
+        if (district != null && district.isNotEmpty) 'district': district,
       },
     );
 

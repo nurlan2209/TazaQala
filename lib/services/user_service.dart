@@ -17,7 +17,6 @@ class UserService {
     required String name,
     required String email,
     required String password,
-    required String district,
   }) async {
     final response = await _apiService.post(
       '/users/admins',
@@ -25,7 +24,6 @@ class UserService {
         'name': name,
         'email': email,
         'password': password,
-        'district': district,
       },
     );
 
@@ -38,7 +36,6 @@ class UserService {
     String? name,
     String? email,
     String? password,
-    String? district,
     bool? isActive,
   }) async {
     final payload = <String, dynamic>{};
@@ -47,7 +44,6 @@ class UserService {
     if (password != null && password.isNotEmpty) {
       payload['password'] = password;
     }
-    if (district != null) payload['district'] = district;
     if (isActive != null) payload['isActive'] = isActive;
 
     final response = await _apiService.patch(

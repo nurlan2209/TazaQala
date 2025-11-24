@@ -1,6 +1,5 @@
 import express from "express";
 import News from "../models/News.js";
-import DISTRICTS from "../config/districts.js";
 import { auth, authorizeRoles } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -8,12 +7,7 @@ const router = express.Router();
 // Public list
 router.get("/", async (req, res) => {
   try {
-    const { district } = req.query;
     const filter = { isPublished: true };
-
-    if (district && DISTRICTS.includes(district)) {
-      filter.district = district;
-    }
 
     const news = await News.find(filter).sort({ publishedAt: -1 });
     res.json(news);
@@ -23,28 +17,22 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Create news (admin/director)
+// Create news (admin)
 router.post(
   "/",
   auth,
-  authorizeRoles("admin", "director"),
+  authorizeRoles("admin"),
   async (req, res) => {
     try {
       const { title, description, district, imageUrl, isPublished } = req.body;
-      if (!title || !description || !district) {
-        return res
-          .status(400)
-          .json({ message: "Барлық өрістерді толтырыңыз" });
-      }
-
-      if (!DISTRICTS.includes(district)) {
-        return res.status(400).json({ message: "Аудан дұрыс емес" });
+      if (!title || !description) {
+        return res.status(400).json({ message: "Барлық өрістерді толтырыңыз" });
       }
 
       const newsItem = new News({
         title,
         description,
-        district,
+        district: district || "",
         imageUrl,
         isPublished: isPublished !== undefined ? isPublished : true,
         createdBy: req.user.id,
@@ -64,7 +52,7 @@ router.post(
 router.patch(
   "/:id",
   auth,
-  authorizeRoles("admin", "director"),
+  authorizeRoles("admin"),
   async (req, res) => {
     try {
       const { title, description, district, imageUrl, isPublished } = req.body;
@@ -77,12 +65,7 @@ router.patch(
       if (description) newsItem.description = description;
       if (typeof isPublished === "boolean") newsItem.isPublished = isPublished;
       if (imageUrl !== undefined) newsItem.imageUrl = imageUrl;
-      if (district) {
-        if (!DISTRICTS.includes(district)) {
-          return res.status(400).json({ message: "Аудан дұрыс емес" });
-        }
-        newsItem.district = district;
-      }
+      if (district !== undefined) newsItem.district = district || "";
 
       await newsItem.save();
       res.json(newsItem);

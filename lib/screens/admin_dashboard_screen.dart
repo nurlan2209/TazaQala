@@ -27,8 +27,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<List<ReportModel>> _loadData() async {
     final auth = context.read<AuthProvider>();
-    final district = auth.isDirector ? null : auth.user?.district;
-    return _reportService.fetchReports(district: district);
+    // Districts no longer used; fetch according to server-side role filtering.
+    return _reportService.fetchReports();
   }
 
   Future<void> _refresh() async {
@@ -49,17 +49,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       appBar: AppBar(
         title: Text(isDirector ? 'Директор дэшборды' : 'Әкімдік дэшборды'),
         backgroundColor: const Color(0xFF2E9B8E),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.auto_awesome),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AIRecommendationsScreen()),
-              );
-            },
-          ),
-        ],
+        actions: null,
       ),
       body: FutureBuilder<List<ReportModel>>(
         future: _future,

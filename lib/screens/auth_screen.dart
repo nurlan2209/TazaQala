@@ -566,8 +566,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final email = _emailController.text.trim();
     final pass = _passwordController.text;
     final confirm = _confirmController.text;
-    final district = _selectedDistrict;
-
     if (name.isEmpty || email.isEmpty || pass.isEmpty || confirm.isEmpty) {
       _showError('Барлық өрістерді толтырыңыз');
       return;
@@ -584,17 +582,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _showError('Құпия сөздер сәйкес келмейді');
       return;
     }
-    if (district == null) {
-      _showError('Ауданды таңдаңыз');
-      return;
-    }
-
     final auth = context.read<AuthProvider>();
     final ok = await auth.register(
       name: name,
       email: email,
       password: pass,
-      district: district,
+      district: _selectedDistrict,
     );
     if (!ok) {
       _showError(auth.errorMessage ?? 'Қате пайда болды');

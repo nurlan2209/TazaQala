@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import DISTRICTS from "../config/districts.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -8,16 +7,10 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     role: {
       type: String,
-      enum: ["director", "admin", "client"],
+      enum: ["admin", "staff", "client"],
       default: "client"
     },
-    district: {
-      type: String,
-      enum: DISTRICTS,
-      required: function requiredDistrict() {
-        return this.role !== "director";
-      }
-    },
+    district: { type: String, default: "" },
     isActive: { type: Boolean, default: true },
     emailVerified: { type: Boolean, default: false },
     emailVerificationToken: String,

@@ -26,6 +26,7 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _token != null && _user != null;
   String? get errorMessage => _error;
 
+  bool get isStaff => _user?.role == 'staff';
   bool get isAdmin => _user?.role == 'admin';
   bool get isDirector => _user?.role == 'director';
 
@@ -65,7 +66,7 @@ class AuthProvider extends ChangeNotifier {
     required String name,
     required String email,
     required String password,
-    required String district,
+    String? district,
   }) async {
     _setLoading(true);
     try {

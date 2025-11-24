@@ -3,7 +3,6 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import User from "../models/User.js";
-import DISTRICTS from "../config/districts.js";
 import {
   sendVerificationEmail,
   sendPasswordResetEmail
@@ -15,8 +14,7 @@ const buildAuthResponse = (user) => ({
   id: user._id,
   name: user.name,
   email: user.email,
-  role: user.role,
-  district: user.district
+  role: user.role
 });
 
 const generateToken = () => crypto.randomBytes(32).toString("hex");
@@ -25,16 +23,10 @@ const generateNumericCode = () => Math.floor(100000 + Math.random() * 900000).to
 // Register client
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password, district } = req.body;
+    const { name, email, password } = req.body;
 
-    if (!name || !email || !password || !district) {
-      return res
-        .status(400)
-        .json({ message: "Барлық өрістерді толтырыңыз" });
-    }
-
-    if (!DISTRICTS.includes(district)) {
-      return res.status(400).json({ message: "Аудан дұрыс емес" });
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Барлық өрістерді толтырыңыз" });
     }
 
     const exist = await User.findOne({ email });
@@ -51,7 +43,6 @@ router.post("/register", async (req, res) => {
       email,
       password: hash,
       role: "client",
-      district,
       emailVerificationToken: verificationToken,
       emailVerificationExpires: expires
     });
@@ -63,7 +54,6 @@ router.post("/register", async (req, res) => {
       {
         id: user._id,
         role: user.role,
-        district: user.district,
         name: user.name
       },
       process.env.JWT_SECRET,
@@ -103,7 +93,6 @@ router.post("/login", async (req, res) => {
       {
         id: user._id,
         role: user.role,
-        district: user.district,
         name: user.name
       },
       process.env.JWT_SECRET,
