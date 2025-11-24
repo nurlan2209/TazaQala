@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import { Blob } from "buffer";
 import connectDB from "./config/db.js";
 
 import authRoutes from "./routes/auth.js";
@@ -12,6 +13,20 @@ import proxyRoutes from "./routes/proxy.js";
 
 dotenv.config();
 const app = express();
+
+// Polyfill File/Blob for environments where File is not defined (e.g., Node 18 runtime)
+if (typeof globalThis.Blob === "undefined") {
+  globalThis.Blob = Blob;
+}
+if (typeof globalThis.File === "undefined") {
+  globalThis.File = class File extends Blob {
+    constructor(parts, name, options = {}) {
+      super(parts, options);
+      this.name = name;
+      this.lastModified = options.lastModified || Date.now();
+    }
+  };
+}
 
 // Middlewares
 app.use(cors());
