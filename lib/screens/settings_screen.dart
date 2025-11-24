@@ -25,7 +25,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Настройки уведомлений
   bool notifyNewComplaints = true;
   bool notifyNewUsers = true;
-  bool notifyAIRecommendations = true;
   bool notifyEmail = false;
 
   // Категории жалоб
@@ -38,7 +37,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   ];
 
   // Системные настройки
-  bool enableAIRecommendations = true;
   bool enableTechnicalMode = false;
 
   bool _obscureOldPassword = true;
@@ -56,9 +54,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       notifyNewComplaints = prefs.getBool('notifyNewComplaints') ?? true;
       notifyNewUsers = prefs.getBool('notifyNewUsers') ?? true;
-      notifyAIRecommendations = prefs.getBool('notifyAIRecommendations') ?? true;
       notifyEmail = prefs.getBool('notifyEmail') ?? false;
-      enableAIRecommendations = prefs.getBool('enableAIRecommendations') ?? true;
       enableTechnicalMode = prefs.getBool('enableTechnicalMode') ?? false;
       _maxFileSizeController.text = prefs.getString('maxFileSize') ?? '10';
       _maxComplaintAgeController.text = prefs.getString('maxComplaintAge') ?? '5';
@@ -69,9 +65,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('notifyNewComplaints', notifyNewComplaints);
     await prefs.setBool('notifyNewUsers', notifyNewUsers);
-    await prefs.setBool('notifyAIRecommendations', notifyAIRecommendations);
     await prefs.setBool('notifyEmail', notifyEmail);
-    await prefs.setBool('enableAIRecommendations', enableAIRecommendations);
     await prefs.setBool('enableTechnicalMode', enableTechnicalMode);
     await prefs.setString('maxFileSize', _maxFileSizeController.text);
     await prefs.setString('maxComplaintAge', _maxComplaintAgeController.text);
@@ -226,12 +220,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         isMobile: isMobile,
                       ),
                       _buildSwitchTile(
-                        title: 'AI ұсыныстар туралы хабарламалар',
-                        value: notifyAIRecommendations,
-                        onChanged: (val) => setState(() => notifyAIRecommendations = val),
-                        isMobile: isMobile,
-                      ),
-                      _buildSwitchTile(
                         title: 'Email хабарламалар',
                         value: notifyEmail,
                         onChanged: (val) => setState(() => notifyEmail = val),
@@ -300,12 +288,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         isMobile: isMobile,
                       ),
                       SizedBox(height: isMobile ? 12 : 16),
-                      _buildSwitchTile(
-                        title: 'AI ұсыныстарды қосу',
-                        value: enableAIRecommendations,
-                        onChanged: (val) => setState(() => enableAIRecommendations = val),
-                        isMobile: isMobile,
-                      ),
                       _buildSwitchTile(
                         title: 'Техникалық қызмет көрсету режимі',
                         value: enableTechnicalMode,

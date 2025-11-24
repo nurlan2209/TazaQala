@@ -1,0 +1,14 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "projects": {
+    "tazaqala-backend": {
+      "path": "tazaqala-backend",
+      "services": {
+        "web": {
+          "startCommand": "npm run start",
+          "installCommand": "npm install"
+        }
+      }
+    }
+  }
+}

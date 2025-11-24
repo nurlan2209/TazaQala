@@ -6,7 +6,6 @@ import 'package:tazaqala/providers/auth_provider.dart';
 import 'package:tazaqala/services/report_service.dart';
 import 'admin_reports_screen.dart';
 import 'director_admins_screen.dart';
-import 'ai_recommendations_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({Key? key}) : super(key: key);
