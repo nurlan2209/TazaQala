@@ -27,7 +27,12 @@ router.get(
       if (!allowedRoles.includes(role)) {
         return res.status(400).json({ message: "Рөл дұрыс емес" });
       }
-      const admins = await User.find({ role }).select("-password").sort({ name: 1 });
+      const filter = { role };
+      // Админ видит только своих сотрудников
+      if (req.user.role === "admin" && role === "staff") {
+        filter.createdBy = req.user.id;
+      }
+      const admins = await User.find(filter).select("-password").sort({ name: 1 });
       res.json(admins);
     } catch (err) {
       console.error("Fetch admins error:", err);

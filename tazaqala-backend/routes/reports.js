@@ -139,6 +139,10 @@ router.patch(
         if (!staffUser || staffUser.role !== "staff") {
           return res.status(400).json({ message: "Қате қызметкер" });
         }
+        // Админ может назначать только своих сотрудников
+        if (staffUser.createdBy?.toString() !== req.user.id) {
+          return res.status(403).json({ message: "Бұл қызметкер басқа админге тиесілі" });
+        }
         report.assignedTo = assignedTo;
       }
       if (lat !== null && lng !== null) {
