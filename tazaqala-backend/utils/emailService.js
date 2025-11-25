@@ -19,6 +19,11 @@ const transporter = nodemailer.createTransport({
   connectionTimeout: 30000,
   greetingTimeout: 30000,
   socketTimeout: 30000,
+  // Форсируем IPv4, чтобы обойти проблемы IPv6 на хостинге
+  family: 4,
+  tls: {
+    rejectUnauthorized: false
+  },
   auth: SMTP_USER
     ? {
         user: SMTP_USER,
@@ -48,6 +53,8 @@ const safeSend = async (options) => {
     });
   } catch (err) {
     console.error("Email send error:", err?.message || err);
+    console.error("SMTP_HOST:", SMTP_HOST, "SMTP_PORT:", SMTP_PORT);
+    throw err;
   }
 };
 
