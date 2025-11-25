@@ -45,10 +45,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: Text(isDirector ? 'Директор дэшборды' : 'Әкімдік дэшборды'),
-        backgroundColor: const Color(0xFF2E9B8E),
-        actions: null,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(70),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF2E9B8E), Color(0xFF3D8FCC)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+          ),
+          child: SafeArea(
+            child: AppBar(
+              title:
+                  Text(
+                    isDirector ? 'Директор дэшборды' : 'Әкімдік дэшборды',
+                    style: const TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+            ),
+          ),
+        ),
       ),
       body: FutureBuilder<List<ReportModel>>(
         future: _future,

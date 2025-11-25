@@ -19,11 +19,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
   final ReportService _reportService = ReportService();
   final UserService _userService = UserService();
 
-  static const LatLng _fallbackCenter = LatLng(51.1694, 71.4491);
-
   final List<String> _filters = ['Барлығы', 'Шешілді', 'Күтуде'];
   String _selectedFilter = 'Барлығы';
-  bool _showMap = false;
   bool _isLoading = false;
   bool _initialized = false;
   String? _errorMessage;
@@ -126,8 +123,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
             _buildHeader(isMobile),
             if (filteredReports.isEmpty)
               SliverToBoxAdapter(child: _buildEmptyState(isMobile))
-            else if (_showMap)
-              SliverToBoxAdapter(child: _buildMap(isMobile))
             else
               SliverPadding(
                 padding: EdgeInsets.all(isMobile ? 12 : 16),
@@ -149,9 +144,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   SliverAppBar _buildHeader(bool isMobile) {
     return SliverAppBar(
-      expandedHeight: isMobile ? 200 : 220,
+      expandedHeight: isMobile ? 130 : 150,
+      collapsedHeight: isMobile ? 90 : 100,
       floating: false,
       pinned: true,
+      automaticallyImplyLeading: false,
       flexibleSpace: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -161,59 +158,55 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
         ),
         child: FlexibleSpaceBar(
-          background: Padding(
-            padding: EdgeInsets.fromLTRB(
-              isMobile ? 12 : 16,
-              isMobile ? 50 : 60,
-              isMobile ? 12 : 16,
-              isMobile ? 12 : 16,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: isMobile ? 36 : 40,
-                      height: isMobile ? 36 : 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
+          background: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                isMobile ? 14 : 18,
+                isMobile ? 20 : 24,
+                isMobile ? 14 : 18,
+                isMobile ? 10 : 12,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: isMobile ? 36 : 40,
+                        height: isMobile ? 36 : 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.receipt_long,
+                          color: Colors.white,
+                          size: isMobile ? 20 : 24,
+                        ),
                       ),
-                      child: Icon(
-                        Icons.receipt_long,
-                        color: Colors.white,
-                        size: isMobile ? 20 : 24,
+                      SizedBox(width: isMobile ? 8 : 12),
+                      const Text(
+                        'Шағымдар',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    SizedBox(width: isMobile ? 8 : 12),
-                    const Text(
-                      'Шағымдар',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      onPressed: () => setState(() => _showMap = !_showMap),
-                      icon: Icon(
-                        _showMap ? Icons.list_alt : Icons.map_outlined,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: _filters
-                      .map((f) => _buildFilterChip(f, isMobile))
-                      .toList(),
-                ),
-              ],
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _filters
+                        .map((f) => _buildFilterChip(f, isMobile))
+                        .toList(),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -247,46 +240,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
             fontSize: isMobile ? 12 : 13,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMap(bool isMobile) {
-    final markers = filteredReports.map((report) {
-      return Marker(
-        markerId: MarkerId(report.id),
-        position: LatLng(report.lat, report.lng),
-        infoWindow: InfoWindow(
-          title: report.category,
-          snippet: report.description,
-        ),
-      );
-    }).toSet();
-
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.6,
-      margin: EdgeInsets.all(isMobile ? 12 : 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: GoogleMap(
-          initialCameraPosition: CameraPosition(
-            target: _initialCameraTarget(),
-            zoom: 12,
-          ),
-          markers: markers,
-          myLocationButtonEnabled: true,
-          zoomControlsEnabled: true,
         ),
       ),
     );
@@ -336,11 +289,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Widget _buildReportCard(ReportModel report, bool isMobile) {
     final auth = context.read<AuthProvider>();
-    final canManage = auth.isAdmin || auth.isStaff;
     final assignedName = _staff.firstWhere(
       (u) => u.id == report.assignedTo,
       orElse: () => UserModel(id: '', name: '', email: '', role: ''),
     );
+    final isAssignedToMyStaff =
+        report.assignedTo != null && assignedName.id.isNotEmpty;
+    final isTakenByOtherAdmin =
+        report.assignedTo != null && report.assignedTo!.isNotEmpty && !isAssignedToMyStaff;
+    final isStaffSelf =
+        auth.isStaff && report.assignedTo != null && report.assignedTo == auth.user?.id;
+    final canManage = (auth.isAdmin && !isTakenByOtherAdmin) || isStaffSelf;
 
     return Container(
       margin: EdgeInsets.only(bottom: isMobile ? 12 : 16),
@@ -442,9 +401,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         Text(
                           assignedName.name.isNotEmpty
                               ? assignedName.name
-                              : (auth.isStaff
-                                  ? 'Сізге тағайындалған'
-                                  : 'Тағайындалған'),
+                              : isTakenByOtherAdmin
+                                  ? 'Басқа админнің қызметкері'
+                                  : (auth.isStaff
+                                      ? 'Сізге тағайындалған'
+                                      : 'Тағайындалған'),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -472,6 +433,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       ),
                   ],
                 ),
+                if (isTakenByOtherAdmin)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      'Бұл шағым басқа админге тағайындалған',
+                      style: TextStyle(
+                        color: Colors.red[400],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -511,27 +484,138 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   void _showDetailDialog(ReportModel report) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(report.category),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(_statusLabel(report.status)),
-            const SizedBox(height: 8),
-            Text(report.description),
-            const SizedBox(height: 8),
-            Text('Координат: ${report.lat}, ${report.lng}'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Жабу'),
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.75,
+          minChildSize: 0.6,
+          maxChildSize: 0.9,
+          builder: (_, controller) {
+            return SingleChildScrollView(
+              controller: controller,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (report.imageUrl.isNotEmpty)
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                      child: Image.network(
+                        report.imageUrl,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          height: 220,
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.image, size: 48, color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                report.category,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _statusColor(report.status).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                _statusLabel(report.status),
+                                style: TextStyle(
+                                  color: _statusColor(report.status),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on, size: 18, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text('${report.lat}, ${report.lng}',
+                                style: TextStyle(color: Colors.grey[700])),
+                            const SizedBox(width: 12),
+                            const Icon(Icons.access_time, size: 18, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              _formatDate(report.createdAt.toLocal()),
+                              style: TextStyle(color: Colors.grey[700]),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          report.description,
+                          style: const TextStyle(fontSize: 15, height: 1.4),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildReportMap(report),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildReportMap(ReportModel report) {
+    final target = LatLng(report.lat, report.lng);
+    final marker = Marker(
+      markerId: MarkerId(report.id),
+      position: target,
+      infoWindow: InfoWindow(title: report.category),
+    );
+
+    return Container(
+      height: 220,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: GoogleMap(
+          initialCameraPosition: CameraPosition(target: target, zoom: 14),
+          markers: {marker},
+          zoomControlsEnabled: false,
+          myLocationButtonEnabled: false,
+          rotateGesturesEnabled: false,
+          tiltGesturesEnabled: false,
+          compassEnabled: false,
+          liteModeEnabled: false,
+        ),
       ),
     );
   }
@@ -746,10 +830,4 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  LatLng _initialCameraTarget() {
-    if (filteredReports.isNotEmpty) {
-      return LatLng(filteredReports.first.lat, filteredReports.first.lng);
-    }
-    return _fallbackCenter;
-  }
 }

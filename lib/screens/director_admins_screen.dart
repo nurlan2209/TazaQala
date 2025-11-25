@@ -53,31 +53,25 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
 
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(title),
-          backgroundColor: const Color(0xFF2E9B8E),
-        ),
+        appBar: _buildGradientAppBar(title),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_error != null) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(title),
-          backgroundColor: const Color(0xFF2E9B8E),
-          actions: widget.allowRoleSwitch
-              ? [
-                  _RoleSwitcher(
-                    showAdmins: _showAdmins,
-                    onChanged: (val) {
-                      setState(() => _showAdmins = val);
-                      _loadData();
-                    },
-                  )
-                ]
-              : null,
-        ),
+        appBar: _buildGradientAppBar(title,
+            actions: widget.allowRoleSwitch
+                ? [
+                    _RoleSwitcher(
+                      showAdmins: _showAdmins,
+                      onChanged: (val) {
+                        setState(() => _showAdmins = val);
+                        _loadData();
+                      },
+                    )
+                  ]
+                : null),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -97,21 +91,18 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        backgroundColor: const Color(0xFF2E9B8E),
-        actions: widget.allowRoleSwitch
-            ? [
-                _RoleSwitcher(
-                  showAdmins: _showAdmins,
-                  onChanged: (val) {
-                    setState(() => _showAdmins = val);
-                    _loadData();
-                  },
-                )
-              ]
-            : null,
-      ),
+      appBar: _buildGradientAppBar(title,
+          actions: widget.allowRoleSwitch
+              ? [
+                  _RoleSwitcher(
+                    showAdmins: _showAdmins,
+                    onChanged: (val) {
+                      setState(() => _showAdmins = val);
+                      _loadData();
+                    },
+                  )
+                ]
+              : null),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAdminForm(context),
         backgroundColor: const Color(0xFF2E9B8E),
@@ -154,6 +145,33 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     );
   }
 
+  PreferredSizeWidget _buildGradientAppBar(String title,
+      {List<Widget>? actions}) {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(70),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF2E9B8E), Color(0xFF3D8FCC)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+        ),
+        child: SafeArea(
+          child: AppBar(
+            title: Text(
+              title,
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            actions: actions,
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _showAdminForm(BuildContext context,
       {UserModel? existing}) async {
     final nameController = TextEditingController(text: existing?.name ?? '');
@@ -171,6 +189,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
+              backgroundColor: Colors.white,
               title: Text(existing == null
                   ? (_showAdmins ? 'Жаңа админ' : 'Жаңа қызметкер')
                   : 'Өңдеу'),
@@ -304,14 +323,24 @@ class _RoleSwitcher extends StatelessWidget {
       child: Row(
         children: [
           ChoiceChip(
-            label: const Text('Админдер'),
+            label: const Text(
+              'Админдер',
+              style: TextStyle(color: Colors.white), // белый текст
+            ),
             selected: showAdmins,
+            selectedColor: const Color(0xFF2E9B8E),
+            backgroundColor: Colors.white24,
             onSelected: (_) => onChanged(true),
           ),
           const SizedBox(width: 8),
           ChoiceChip(
-            label: const Text('Қызметкерлер'),
+            label: const Text(
+              'Қызметкерлер',
+              style: TextStyle(color: Colors.white), // белый текст
+            ),
             selected: !showAdmins,
+            selectedColor: const Color(0xFF2E9B8E),
+            backgroundColor: Colors.white24,
             onSelected: (_) => onChanged(false),
           ),
         ],

@@ -314,12 +314,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       },
                       isMobile: isMobile,
                     ),
-                  _buildMenuItem(
-                    icon: Icons.notifications_outlined,
-                    title: 'Хабарламалар',
-                    onTap: () {},
-                    isMobile: isMobile,
-                  ),
                   if (!isDirector && !isAdmin)
                     _buildMenuItem(
                       icon: Icons.info_outline,
@@ -327,7 +321,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onTap: () {},
                       isMobile: isMobile,
                     ),
-                  SizedBox(height: isMobile ? 24 : 32),
+                  SizedBox(height: isMobile ? 5 : 32),
                   _buildMenuItem(
                     icon: Icons.logout,
                     title: 'Шығу',
