@@ -26,6 +26,16 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ message: "Барлық өрістерді толтырыңыз" });
     }
 
+    // Құпия сөзді тексеру: кемі 6 символ, ішінде сан және арнайы символ болуы керек
+    const hasMinLen = typeof password === "string" && password.length >= 6;
+    const hasDigit = /\d/.test(password || "");
+    const hasSpecial = /[^A-Za-z0-9]/.test(password || "");
+    if (!hasMinLen || !hasDigit || !hasSpecial) {
+      return res.status(400).json({
+        message: "Құпия сөз 6+ символ, сан және арнайы символ қамтуы тиіс"
+      });
+    }
+
     const exist = await User.findOne({ email });
     if (exist) {
       return res.status(400).json({ message: "Email already exists" });

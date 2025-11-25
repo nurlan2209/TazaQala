@@ -16,9 +16,9 @@ const transporter = nodemailer.createTransport({
   host: SMTP_HOST,
   port: Number(SMTP_PORT) || 587,
   secure: SMTP_SECURE === "true",
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
+  connectionTimeout: 30000,
+  greetingTimeout: 30000,
+  socketTimeout: 30000,
   auth: SMTP_USER
     ? {
         user: SMTP_USER,
@@ -42,16 +42,10 @@ const safeSend = async (options) => {
     return;
   }
   try {
-    const sendPromise = transporter.sendMail({
+    await transporter.sendMail({
       from: SMTP_USER,
       ...options
     });
-    await Promise.race([
-      sendPromise,
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Email send timeout")), 10000)
-      )
-    ]);
   } catch (err) {
     console.error("Email send error:", err?.message || err);
   }
