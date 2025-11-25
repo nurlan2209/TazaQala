@@ -41,11 +41,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final isDirector = authProvider.isDirector;
     final isAdmin = authProvider.isAdmin;
-    final isPrivileged = isAdmin;
+    final isPrivileged = isAdmin || isDirector;
 
     // Reset index if role changed and current tab is out of range
-    final maxIndex = isAdmin ? 3 : 4;
+    final maxIndex = isDirector
+        ? 3
+        : isAdmin
+        ? 3
+        : 4;
     if (_currentIndex > maxIndex) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -73,8 +78,13 @@ class _HomeScreenState extends State<HomeScreen> {
           currentIndex: safeIndex,
           onTap: (index) {
             final auth = context.read<AuthProvider>();
+            final isDir = auth.isDirector;
             final isAdm = auth.isAdmin;
-            final profileTabIndex = isAdm ? 3 : 4;
+            final profileTabIndex = isDir
+                ? 3
+                : isAdm
+                ? 3
+                : 4;
 
             if (index == profileTabIndex && !auth.isAuthenticated) {
               Navigator.push(
@@ -146,17 +156,32 @@ class _HomeScreenState extends State<HomeScreen> {
     final isPrivileged = isAdmin;
 
     if (isPrivileged) {
-      switch (index) {
-        case 0:
-          return AdminDashboardScreen();
-        case 1:
-          return const StaffManagementScreen();
-        case 2:
-          return ReportsScreen();
-        case 3:
-          return const ProfileScreen();
-        default:
-          return AdminDashboardScreen();
+      if (isDirector) {
+        switch (index) {
+          case 0:
+            return AdminDashboardScreen();
+          case 1:
+            return const StaffManagementScreen();
+          case 2:
+            return ReportsScreen();
+          case 3:
+            return const ProfileScreen();
+          default:
+            return AdminDashboardScreen();
+        }
+      } else {
+        switch (index) {
+          case 0:
+            return AdminDashboardScreen();
+          case 1:
+            return const StaffManagementScreen();
+          case 2:
+            return ReportsScreen();
+          case 3:
+            return const ProfileScreen();
+          default:
+            return AdminDashboardScreen();
+        }
       }
     }
 
@@ -242,8 +267,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   SizedBox(height: isMobile ? 20 : 24),
                   Row(
                     children: [
-                      Icon(Icons.receipt_long,
-                          color: Colors.grey[700], size: 20),
+                      Icon(
+                        Icons.receipt_long,
+                        color: Colors.grey[700],
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'Соңғы шағымдар',
@@ -319,8 +347,11 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.add_circle_outline,
-                  color: Colors.white, size: 22),
+              const Icon(
+                Icons.add_circle_outline,
+                color: Colors.white,
+                size: 22,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Шағым қосу',
@@ -348,9 +379,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: () async {
                 final result = await Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => const CreateReportScreen(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const CreateReportScreen()),
                 );
                 if (result == true) {
                   _loadReports();
@@ -363,9 +392,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
-                padding: EdgeInsets.symmetric(
-                  vertical: isMobile ? 13 : 15,
-                ),
+                padding: EdgeInsets.symmetric(vertical: isMobile ? 13 : 15),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -474,8 +501,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(height: isMobile ? 5 : 6),
                 Row(
                   children: [
-                    Icon(Icons.location_on,
-                        size: isMobile ? 13 : 14, color: Colors.red[400]),
+                    Icon(
+                      Icons.location_on,
+                      size: isMobile ? 13 : 14,
+                      color: Colors.red[400],
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       report.district,

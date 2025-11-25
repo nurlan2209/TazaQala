@@ -3,8 +3,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:tazaqala/models/report.dart';
+import 'package:tazaqala/models/user.dart';
 import 'package:tazaqala/providers/auth_provider.dart';
 import 'package:tazaqala/services/report_service.dart';
+import 'package:tazaqala/services/user_service.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -15,23 +17,25 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   final ReportService _reportService = ReportService();
-  static const LatLng _astanaCenter = LatLng(51.1694, 71.4491);
+  final UserService _userService = UserService();
 
-  String selectedFilter = 'Барлығы';
-  bool showMap = false;
+  static const LatLng _fallbackCenter = LatLng(51.1694, 71.4491);
+
+  final List<String> _filters = ['Барлығы', 'Шешілді', 'Күтуде'];
+  String _selectedFilter = 'Барлығы';
+  bool _showMap = false;
   bool _isLoading = false;
   bool _initialized = false;
   String? _errorMessage;
   List<ReportModel> _reports = [];
-
-  final List<String> filters = ['Барлығы', 'Шешілді', 'Күтуде'];
+  List<UserModel> _staff = [];
 
   List<ReportModel> get filteredReports {
     return _reports.where((report) {
-      if (selectedFilter == 'Шешілді' && report.status != 'done') {
+      if (_selectedFilter == 'Шешілді' && report.status != 'done') {
         return false;
       }
-      if (selectedFilter == 'Күтуде' && report.status == 'done') {
+      if (_selectedFilter == 'Күтуде' && report.status == 'done') {
         return false;
       }
       return true;
@@ -43,7 +47,25 @@ class _ReportsScreenState extends State<ReportsScreen> {
     super.didChangeDependencies();
     if (!_initialized) {
       _initialized = true;
-      _loadReports();
+      _loadInitial();
+    }
+  }
+
+  Future<void> _loadInitial() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.isAdmin) {
+      await _loadStaff();
+    }
+    await _loadReports();
+  }
+
+  Future<void> _loadStaff() async {
+    try {
+      final users = await _userService.fetchAdmins();
+      if (!mounted) return;
+      setState(() => _staff = users);
+    } catch (_) {
+      // ignore staff errors
     }
   }
 
@@ -53,13 +75,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _isLoading = true;
       _errorMessage = null;
     });
-
     try {
       final data = await _reportService.fetchReports();
       if (!mounted) return;
-      setState(() {
-        _reports = data;
-      });
+      setState(() => _reports = data);
     } catch (err) {
       if (!mounted) return;
       setState(() {
@@ -67,166 +86,145 @@ class _ReportsScreenState extends State<ReportsScreen> {
       });
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 600;
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_errorMessage != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 40),
+              const SizedBox(height: 8),
+              Text(_errorMessage!, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _loadInitial,
+                child: const Text('Қайталау'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: CustomScrollView(
-        slivers: [
-          // AppBar с градиентом
-          SliverAppBar(
-            expandedHeight: isMobile ? 200 : 220,
-            floating: false,
-            pinned: true,
-            flexibleSpace: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF2E9B8E), Color(0xFF3D8FCC)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-              ),
-              child: FlexibleSpaceBar(
-                background: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    isMobile ? 12 : 16,
-                    isMobile ? 50 : 60,
-                    isMobile ? 12 : 16,
-                    isMobile ? 12 : 16,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Заголовок и кнопка Admin
-                      Row(
-                        children: [
-                          Container(
-                            width: isMobile ? 36 : 40,
-                            height: isMobile ? 36 : 40,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.receipt_long,
-                              color: Colors.white,
-                              size: isMobile ? 20 : 24,
-                            ),
-                          ),
-                          SizedBox(width: isMobile ? 8 : 12),
-                          Flexible(
-                            child: Text(
-                              'Шағымдар',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: isMobile ? 18 : 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: isMobile ? 14 : 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: Wrap(
-                          alignment: WrapAlignment.spaceEvenly,
-                          runAlignment: WrapAlignment.start,
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            ...filters.map(
-                              (filter) => _buildFilterChip(filter, isMobile),
-                            ),
-                            const SizedBox.shrink(),
-                            _buildMapToggle(isMobile),
-                          ],
-                        ),
-                      ),
-                    ],
+      body: RefreshIndicator(
+        onRefresh: _loadInitial,
+        child: CustomScrollView(
+          slivers: [
+            _buildHeader(isMobile),
+            if (filteredReports.isEmpty)
+              SliverToBoxAdapter(child: _buildEmptyState(isMobile))
+            else if (_showMap)
+              SliverToBoxAdapter(child: _buildMap(isMobile))
+            else
+              SliverPadding(
+                padding: EdgeInsets.all(isMobile ? 12 : 16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => _buildReportCard(
+                      filteredReports[index],
+                      isMobile,
+                    ),
+                    childCount: filteredReports.length,
                   ),
                 ),
               ),
-            ),
-          ),
+          ],
+        ),
+      ),
+    );
+  }
 
-          if (_isLoading)
-            SliverToBoxAdapter(child: _buildLoadingState())
-          else if (_errorMessage != null)
-            SliverToBoxAdapter(child: _buildErrorState())
-          else if (filteredReports.isEmpty)
-            SliverToBoxAdapter(child: _buildEmptyState(isMobile))
-          else if (showMap)
-            SliverToBoxAdapter(
-              child: Container(
-                height: MediaQuery.of(context).size.height * 0.6,
-                margin: EdgeInsets.all(isMobile ? 12 : 16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
+  SliverAppBar _buildHeader(bool isMobile) {
+    return SliverAppBar(
+      expandedHeight: isMobile ? 200 : 220,
+      floating: false,
+      pinned: true,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF2E9B8E), Color(0xFF3D8FCC)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+        ),
+        child: FlexibleSpaceBar(
+          background: Padding(
+            padding: EdgeInsets.fromLTRB(
+              isMobile ? 12 : 16,
+              isMobile ? 50 : 60,
+              isMobile ? 12 : 16,
+              isMobile ? 12 : 16,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: isMobile ? 36 : 40,
+                      height: isMobile ? 36 : 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.receipt_long,
+                        color: Colors.white,
+                        size: isMobile ? 20 : 24,
+                      ),
+                    ),
+                    SizedBox(width: isMobile ? 8 : 12),
+                    const Text(
+                      'Шағымдар',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => setState(() => _showMap = !_showMap),
+                      icon: Icon(
+                        _showMap ? Icons.list_alt : Icons.map_outlined,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: _initialCameraTarget(),
-                      zoom: 12,
-                    ),
-                    markers: filteredReports.map((report) {
-                      return Marker(
-                        markerId: MarkerId(report.id),
-                        position: LatLng(report.lat, report.lng),
-                        infoWindow: InfoWindow(
-                          title: report.category,
-                          snippet: _statusLabel(report.status),
-                        ),
-                      );
-                    }).toSet(),
-                    myLocationButtonEnabled: true,
-                    zoomControlsEnabled: true,
-                  ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: _filters
+                      .map((f) => _buildFilterChip(f, isMobile))
+                      .toList(),
                 ),
-              ),
-            )
-          else
-            SliverPadding(
-              padding: EdgeInsets.all(isMobile ? 12 : 16),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  return _buildReportCard(filteredReports[index], isMobile);
-                }, childCount: filteredReports.length),
-              ),
+              ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildFilterChip(String label, bool isMobile) {
-    final isSelected = selectedFilter == label;
+    final isSelected = _selectedFilter == label;
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedFilter = label;
-        });
-      },
+      onTap: () => setState(() => _selectedFilter = label),
       child: Container(
         padding: EdgeInsets.symmetric(
           horizontal: isMobile ? 16 : 18,
@@ -238,9 +236,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
               : Colors.white.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected
-                ? Colors.white
-                : Colors.white.withValues(alpha: 0.3),
+            color:
+                isSelected ? Colors.white : Colors.white.withValues(alpha: 0.3),
           ),
         ),
         child: Text(
@@ -255,85 +252,42 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  LatLng _initialCameraTarget() {
-    if (filteredReports.isNotEmpty) {
-      return LatLng(filteredReports.first.lat, filteredReports.first.lng);
-    }
-    return _astanaCenter;
-  }
+  Widget _buildMap(bool isMobile) {
+    final markers = filteredReports.map((report) {
+      return Marker(
+        markerId: MarkerId(report.id),
+        position: LatLng(report.lat, report.lng),
+        infoWindow: InfoWindow(
+          title: report.category,
+          snippet: report.description,
+        ),
+      );
+    }).toSet();
 
-  Widget _buildMapToggle(bool isMobile) {
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          showMap = !showMap;
-        });
-      },
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? 12 : 14,
-          vertical: isMobile ? 8 : 10,
-        ),
-        decoration: BoxDecoration(
-          color: showMap ? Colors.white : Colors.white.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.map_outlined,
-              color: showMap ? const Color(0xFF2E9B8E) : Colors.white,
-              size: isMobile ? 14 : 16,
-            ),
-            SizedBox(width: isMobile ? 6 : 8),
-            Text(
-              'Картада көру',
-              style: TextStyle(
-                color: showMap ? const Color(0xFF2E9B8E) : Colors.white,
-                fontSize: isMobile ? 11 : 13,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingState() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Center(
-        child: CircularProgressIndicator(
-          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF2E9B8E)),
-          backgroundColor: Colors.grey[200],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorState() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          Icon(Icons.error_outline, color: Colors.red[300], size: 48),
-          const SizedBox(height: 12),
-          Text(
-            _errorMessage ?? 'Қате пайда болды',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 14),
-          ),
-          const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: _loadReports,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2E9B8E),
-            ),
-            child: const Text('Қайталау'),
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.6,
+      margin: EdgeInsets.all(isMobile ? 12 : 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: GoogleMap(
+          initialCameraPosition: CameraPosition(
+            target: _initialCameraTarget(),
+            zoom: 12,
+          ),
+          markers: markers,
+          myLocationButtonEnabled: true,
+          zoomControlsEnabled: true,
+        ),
       ),
     );
   }
@@ -383,6 +337,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _buildReportCard(ReportModel report, bool isMobile) {
     final auth = context.read<AuthProvider>();
     final canManage = auth.isAdmin;
+    final assignedName = _staff.firstWhere(
+      (u) => u.id == report.assignedTo,
+      orElse: () => UserModel(id: '', name: '', email: '', role: ''),
+    );
+
     return Container(
       margin: EdgeInsets.only(bottom: isMobile ? 12 : 16),
       decoration: BoxDecoration(
@@ -401,14 +360,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
         children: [
           if (report.imageUrl.isNotEmpty)
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
               child: Image.network(
                 report.imageUrl,
                 width: double.infinity,
                 height: isMobile ? 180 : 220,
                 fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  height: isMobile ? 180 : 220,
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.image, size: 48, color: Colors.grey),
+                ),
               ),
             ),
           Padding(
@@ -417,73 +380,75 @@ class _ReportsScreenState extends State<ReportsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Flexible(
+                    Expanded(
                       child: Text(
                         report.category,
-                        style: TextStyle(
-                          fontSize: isMobile ? 14 : 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700),
                       ),
                     ),
                     Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isMobile ? 10 : 12,
-                        vertical: isMobile ? 4 : 5,
-                      ),
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: _statusColor(report.status),
+                        color: _statusColor(report.status).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         _statusLabel(report.status),
                         style: TextStyle(
-                          fontSize: isMobile ? 11 : 12,
-                          color: Colors.white,
+                          color: _statusColor(report.status),
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: isMobile ? 6 : 8),
+                const SizedBox(height: 6),
                 Row(
                   children: [
-                    Icon(
-                      Icons.location_on,
-                      size: isMobile ? 13 : 14,
-                      color: Colors.grey[600],
-                    ),
-                    SizedBox(width: isMobile ? 3 : 4),
+                    Icon(Icons.location_on,
+                        size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
                     Text(
                       report.district,
-                      style: TextStyle(
-                        fontSize: isMobile ? 11 : 12,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
-                    SizedBox(width: isMobile ? 8 : 12),
+                    const SizedBox(width: 10),
+                    Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
                     Text(
-                      '• ${_formatDate(report.createdAt)}',
-                      style: TextStyle(
-                        fontSize: isMobile ? 11 : 12,
-                        color: Colors.grey[600],
-                      ),
+                      _formatDate(report.createdAt.toLocal()),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
                   ],
                 ),
-                SizedBox(height: isMobile ? 10 : 12),
+                const SizedBox(height: 8),
                 Text(
                   report.description,
                   style: TextStyle(fontSize: isMobile ? 13 : 14, height: 1.4),
-                  maxLines: 2,
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: isMobile ? 8 : 10),
-                SizedBox(height: isMobile ? 12 : 16),
+                if (report.assignedTo != null && report.assignedTo!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person, size: 16, color: Colors.green),
+                        const SizedBox(width: 6),
+                        Text(
+                          assignedName.name.isNotEmpty
+                              ? assignedName.name
+                              : 'Тағайындалған',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 12),
                 Wrap(
                   spacing: isMobile ? 6 : 8,
                   runSpacing: isMobile ? 6 : 8,
@@ -493,9 +458,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       label: 'Толығырақ',
                       color: Colors.grey[700]!,
                       isMobile: isMobile,
-                      onPressed: () {
-                        _showDetailDialog(report);
-                      },
+                      onPressed: () => _showDetailDialog(report),
                     ),
                     if (canManage)
                       _buildActionButton(
@@ -503,9 +466,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         label: 'Жаңарту',
                         color: const Color(0xFF2E9B8E),
                         isMobile: isMobile,
-                        onPressed: () {
-                          _showUpdateSheet(report);
-                        },
+                        onPressed: () => _showUpdateSheet(report),
                       ),
                   ],
                 ),
@@ -524,17 +485,24 @@ class _ReportsScreenState extends State<ReportsScreen> {
     required bool isMobile,
     required VoidCallback onPressed,
   }) {
-    return OutlinedButton.icon(
+    return ElevatedButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon, size: isMobile ? 16 : 18),
-      label: Text(label, style: TextStyle(fontSize: isMobile ? 11 : 12)),
-      style: OutlinedButton.styleFrom(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color.withValues(alpha: 0.12),
         foregroundColor: color,
-        side: BorderSide(color: color),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         padding: EdgeInsets.symmetric(
           horizontal: isMobile ? 10 : 12,
-          vertical: isMobile ? 6 : 8,
+          vertical: isMobile ? 10 : 12,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
+      ),
+      icon: Icon(icon, size: isMobile ? 16 : 18),
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: isMobile ? 12 : 13,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -543,45 +511,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
   void _showDetailDialog(ReportModel report) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      builder: (_) => AlertDialog(
         title: Text(report.category),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildDetailItem(label: 'Аудан', value: report.district),
+            Text(_statusLabel(report.status)),
             const SizedBox(height: 8),
-            _buildDetailItem(
-              label: 'Мәртебе',
-              value: _statusLabel(report.status),
-              badgeColor: _statusColor(report.status),
-            ),
+            Text(report.description),
             const SizedBox(height: 8),
-            _buildDetailItem(
-              label: 'Күні',
-              value: _formatDate(report.createdAt),
-            ),
-            const SizedBox(height: 8),
-            _buildDetailItem(
-              label: 'Координаталар',
-              value:
-                  '${report.lat.toStringAsFixed(4)}, ${report.lng.toStringAsFixed(4)}',
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Сипаттама',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[700],
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              report.description,
-              style: const TextStyle(fontSize: 14, height: 1.5),
-            ),
+            Text('Координат: ${report.lat}, ${report.lng}'),
           ],
         ),
         actions: [
@@ -602,17 +542,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
       {'value': 'done', 'label': 'Шешілді'},
     ];
 
+    final auth = context.read<AuthProvider>();
+    final isAdmin = auth.isAdmin;
+
     String? selectedStatus = report.status;
+    String? selectedStaff = report.assignedTo;
     final categoryController = TextEditingController(text: report.category);
-    final descriptionController = TextEditingController(
-      text: report.description,
-    );
-    final latController = TextEditingController(
-      text: report.lat.toStringAsFixed(6),
-    );
-    final lngController = TextEditingController(
-      text: report.lng.toStringAsFixed(6),
-    );
+    final descriptionController =
+        TextEditingController(text: report.description);
+    final latController =
+        TextEditingController(text: report.lat.toStringAsFixed(6));
+    final lngController =
+        TextEditingController(text: report.lng.toStringAsFixed(6));
     bool isSaving = false;
 
     showModalBottomSheet(
@@ -640,6 +581,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   status: selectedStatus,
                   lat: lat,
                   lng: lng,
+                  assignedTo: isAdmin ? selectedStaff : null,
                 );
 
                 if (mounted) {
@@ -651,14 +593,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Қате: $e')));
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text('Қате: $e')));
                 }
               } finally {
-                if (mounted) {
-                  setModalState(() => isSaving = false);
-                }
+                if (mounted) setModalState(() => isSaving = false);
               }
             }
 
@@ -671,10 +610,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   children: [
                     const Text(
                       'Шағымды өңдеу',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -708,13 +644,32 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         labelText: 'Мәртебе',
                         border: OutlineInputBorder(),
                       ),
-                      onChanged: (value) {
-                        setModalState(() {
-                          selectedStatus = value;
-                        });
-                      },
+                      onChanged: (value) => setModalState(() {
+                        selectedStatus = value;
+                      }),
                     ),
                     const SizedBox(height: 12),
+                    if (isAdmin && _staff.isNotEmpty) ...[
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedStaff,
+                        decoration: const InputDecoration(
+                          labelText: 'Қызметкер тағайындау',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _staff
+                            .map(
+                              (u) => DropdownMenuItem<String>(
+                                value: u.id,
+                                child: Text(u.name),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) => setModalState(() {
+                          selectedStaff = value;
+                        }),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     Row(
                       children: [
                         Expanded(
@@ -724,7 +679,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               labelText: 'Ені (lat)',
                               border: OutlineInputBorder(),
                             ),
-                            keyboardType: TextInputType.numberWithOptions(
+                            keyboardType: const TextInputType.numberWithOptions(
                               signed: true,
                               decimal: true,
                             ),
@@ -738,7 +693,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               labelText: 'Бойлығы (lng)',
                               border: OutlineInputBorder(),
                             ),
-                            keyboardType: TextInputType.numberWithOptions(
+                            keyboardType: const TextInputType.numberWithOptions(
                               signed: true,
                               decimal: true,
                             ),
@@ -777,38 +732,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildDetailItem({
-    required String label,
-    required String value,
-    Color? badgeColor,
-  }) {
-    if (badgeColor != null) {
-      return Row(
-        children: [
-          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w600)),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: badgeColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(value, style: const TextStyle(color: Colors.white)),
-          ),
-        ],
-      );
+  LatLng _initialCameraTarget() {
+    if (filteredReports.isNotEmpty) {
+      return LatLng(filteredReports.first.lat, filteredReports.first.lng);
     }
-
-    return RichText(
-      text: TextSpan(
-        style: const TextStyle(color: Colors.black87),
-        children: [
-          TextSpan(
-            text: '$label: ',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          TextSpan(text: value),
-        ],
-      ),
-    );
+    return _fallbackCenter;
   }
 }

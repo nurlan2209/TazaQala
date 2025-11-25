@@ -10,6 +10,7 @@ class ReportModel {
     required this.lng,
     required this.status,
     required this.createdAt,
+    this.assignedTo,
   });
 
   final String id;
@@ -22,6 +23,7 @@ class ReportModel {
   final double lng;
   final String status;
   final DateTime createdAt;
+  final String? assignedTo;
 
   factory ReportModel.fromJson(Map<String, dynamic> json) {
     final location = json['location'] as Map<String, dynamic>? ?? {};
@@ -35,6 +37,7 @@ class ReportModel {
       lat: (location['lat'] as num?)?.toDouble() ?? 0,
       lng: (location['lng'] as num?)?.toDouble() ?? 0,
       status: json['status'] as String? ?? 'new',
+      assignedTo: json['assignedTo']?.toString(),
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.now(),
     );

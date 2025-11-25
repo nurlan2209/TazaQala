@@ -60,11 +60,13 @@ class ReportService {
     String? status,
     double? lat,
     double? lng,
+    String? assignedTo,
   }) async {
     final payload = <String, dynamic>{};
     if (category != null) payload['category'] = category;
     if (description != null) payload['description'] = description;
     if (status != null) payload['status'] = status;
+    if (assignedTo != null) payload['assignedTo'] = assignedTo;
     if (lat != null && lng != null) {
       payload['lat'] = lat;
       payload['lng'] = lng;

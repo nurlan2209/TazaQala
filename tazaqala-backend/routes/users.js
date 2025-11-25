@@ -19,7 +19,7 @@ const sanitizeUser = (user) => {
 router.get(
   "/admins",
   auth,
-  authorizeRoles("admin"),
+  authorizeRoles("admin", "director"),
   async (req, res) => {
     try {
       const admins = await User.find({ role: "staff" })
@@ -37,7 +37,7 @@ router.get(
 router.post(
   "/admins",
   auth,
-  authorizeRoles("admin"),
+  authorizeRoles("admin", "director"),
   async (req, res) => {
     try {
       const { name, email, password } = req.body;
@@ -76,7 +76,7 @@ router.post(
 router.patch(
   "/admins/:id",
   auth,
-  authorizeRoles("admin"),
+  authorizeRoles("admin", "director"),
   async (req, res) => {
     try {
       const { name, email, password, isActive } = req.body;
