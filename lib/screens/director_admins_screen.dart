@@ -3,7 +3,14 @@ import 'package:tazaqala/models/user.dart';
 import 'package:tazaqala/services/user_service.dart';
 
 class StaffManagementScreen extends StatefulWidget {
-  const StaffManagementScreen({super.key});
+  const StaffManagementScreen({
+    super.key,
+    this.allowRoleSwitch = false,
+    this.defaultShowAdmins = false,
+  });
+
+  final bool allowRoleSwitch;
+  final bool defaultShowAdmins;
 
   @override
   State<StaffManagementScreen> createState() => _StaffManagementScreenState();
@@ -15,10 +22,12 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   List<UserModel> _staff = [];
   bool _isLoading = true;
   String? _error;
+  late bool _showAdmins;
 
   @override
   void initState() {
     super.initState();
+    _showAdmins = widget.defaultShowAdmins;
     _loadData();
   }
 
@@ -28,7 +37,8 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
       _error = null;
     });
     try {
-      final users = await _userService.fetchAdmins();
+      final users =
+          await _userService.fetchAdmins(role: _showAdmins ? 'admin' : 'staff');
       setState(() => _staff = users);
     } catch (e) {
       setState(() => _error = e.toString());
@@ -39,17 +49,34 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final title = _showAdmins ? 'Админдер' : 'Қызметкерлер';
+
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(title),
+          backgroundColor: const Color(0xFF2E9B8E),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_error != null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Қызметкерлер'),
+          title: Text(title),
           backgroundColor: const Color(0xFF2E9B8E),
+          actions: widget.allowRoleSwitch
+              ? [
+                  _RoleSwitcher(
+                    showAdmins: _showAdmins,
+                    onChanged: (val) {
+                      setState(() => _showAdmins = val);
+                      _loadData();
+                    },
+                  )
+                ]
+              : null,
         ),
         body: Center(
           child: Column(
@@ -71,8 +98,19 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Қызметкерлер'),
+        title: Text(title),
         backgroundColor: const Color(0xFF2E9B8E),
+        actions: widget.allowRoleSwitch
+            ? [
+                _RoleSwitcher(
+                  showAdmins: _showAdmins,
+                  onChanged: (val) {
+                    setState(() => _showAdmins = val);
+                    _loadData();
+                  },
+                )
+              ]
+            : null,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAdminForm(context),
@@ -98,7 +136,9 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                         ),
                       ],
                     ),
-                    child: const Text('Қызметкерлер тізімі бос.'),
+                    child: Text(_showAdmins
+                        ? 'Админдер тізімі бос.'
+                        : 'Қызметкерлер тізімі бос.'),
                   ),
                 ]
               : _staff
@@ -120,6 +160,9 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     final emailController = TextEditingController(text: existing?.email ?? '');
     final passController = TextEditingController();
     bool isActive = existing?.isActive ?? true;
+    String selectedRole = existing?.role == 'admin'
+        ? 'admin'
+        : (_showAdmins ? 'admin' : 'staff');
 
     await showDialog(
       context: context,
@@ -128,7 +171,9 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: Text(existing == null ? 'Жаңа қызметкер' : 'Өңдеу'),
+              title: Text(existing == null
+                  ? (_showAdmins ? 'Жаңа админ' : 'Жаңа қызметкер')
+                  : 'Өңдеу'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -145,6 +190,27 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                       controller: passController,
                       decoration: const InputDecoration(labelText: 'Құпия сөз'),
                     ),
+                    if (widget.allowRoleSwitch)
+                      DropdownButtonFormField<String>(
+                        value: selectedRole,
+                        decoration:
+                            const InputDecoration(labelText: 'Рөлі'),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'admin',
+                            child: Text('Админ'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'staff',
+                            child: Text('Қызметкер'),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => selectedRole = val);
+                          }
+                        },
+                      ),
                     SwitchListTile(
                       value: isActive,
                       onChanged: (val) => setState(() => isActive = val),
@@ -177,12 +243,17 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                           }
 
                           try {
+                            final roleToUse = widget.allowRoleSwitch
+                                ? selectedRole
+                                : (widget.defaultShowAdmins ? 'admin' : 'staff');
+
                             if (existing == null) {
                               await _userService.createAdmin(
                                 name: name,
                                 email: email,
                                 password:
                                     password.isEmpty ? '123456' : password,
+                                role: roleToUse,
                               );
                             } else {
                               await _userService.updateAdmin(
@@ -191,6 +262,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                                 email: email,
                                 password: password,
                                 isActive: isActive,
+                                role: roleToUse,
                               );
                             }
                             if (mounted) Navigator.pop(ctx);
@@ -219,6 +291,35 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   }
 }
 
+class _RoleSwitcher extends StatelessWidget {
+  const _RoleSwitcher({required this.showAdmins, required this.onChanged});
+
+  final bool showAdmins;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          ChoiceChip(
+            label: const Text('Админдер'),
+            selected: showAdmins,
+            onSelected: (_) => onChanged(true),
+          ),
+          const SizedBox(width: 8),
+          ChoiceChip(
+            label: const Text('Қызметкерлер'),
+            selected: !showAdmins,
+            onSelected: (_) => onChanged(false),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AdminTile extends StatelessWidget {
   const _AdminTile({required this.admin, required this.onEdit});
 
@@ -227,12 +328,19 @@ class _AdminTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final roleLabel = admin.role == 'admin' ? 'Админ' : 'Қызметкер';
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
         title: Text(admin.name),
-        subtitle: Text(admin.email),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(admin.email),
+            Text(roleLabel, style: const TextStyle(fontSize: 12)),
+          ],
+        ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

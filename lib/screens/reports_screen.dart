@@ -336,7 +336,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Widget _buildReportCard(ReportModel report, bool isMobile) {
     final auth = context.read<AuthProvider>();
-    final canManage = auth.isAdmin;
+    final canManage = auth.isAdmin || auth.isStaff;
     final assignedName = _staff.firstWhere(
       (u) => u.id == report.assignedTo,
       orElse: () => UserModel(id: '', name: '', email: '', role: ''),
@@ -442,7 +442,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         Text(
                           assignedName.name.isNotEmpty
                               ? assignedName.name
-                              : 'Тағайындалған',
+                              : (auth.isStaff
+                                  ? 'Сізге тағайындалған'
+                                  : 'Тағайындалған'),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -544,6 +546,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     final auth = context.read<AuthProvider>();
     final isAdmin = auth.isAdmin;
+    final isStaff = auth.isStaff;
 
     String? selectedStatus = report.status;
     String? selectedStaff = report.assignedTo;
@@ -568,16 +571,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
             Future<void> handleSave() async {
               setModalState(() => isSaving = true);
               try {
-                final lat = double.tryParse(latController.text.trim());
-                final lng = double.tryParse(lngController.text.trim());
-                if (lat == null || lng == null) {
-                  throw Exception('Координаталар дұрыс емес');
+                double? lat;
+                double? lng;
+                if (isAdmin) {
+                  lat = double.tryParse(latController.text.trim());
+                  lng = double.tryParse(lngController.text.trim());
+                  if (lat == null || lng == null) {
+                    throw Exception('Координаталар дұрыс емес');
+                  }
                 }
 
                 await _reportService.updateReport(
                   id: report.id,
-                  category: categoryController.text.trim(),
-                  description: descriptionController.text.trim(),
+                  category: isAdmin ? categoryController.text.trim() : null,
+                  description:
+                      isAdmin ? descriptionController.text.trim() : null,
                   status: selectedStatus,
                   lat: lat,
                   lng: lng,
@@ -615,6 +623,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     const SizedBox(height: 16),
                     TextField(
                       controller: categoryController,
+                      readOnly: !isAdmin,
                       decoration: const InputDecoration(
                         labelText: 'Категория',
                         border: OutlineInputBorder(),
@@ -623,6 +632,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: descriptionController,
+                      readOnly: !isAdmin,
                       maxLines: 3,
                       decoration: const InputDecoration(
                         labelText: 'Сипаттама',
@@ -670,38 +680,42 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       ),
                       const SizedBox(height: 12),
                     ],
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: latController,
-                            decoration: const InputDecoration(
-                              labelText: 'Ені (lat)',
-                              border: OutlineInputBorder(),
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              signed: true,
-                              decimal: true,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: lngController,
-                            decoration: const InputDecoration(
-                              labelText: 'Бойлығы (lng)',
-                              border: OutlineInputBorder(),
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              signed: true,
-                              decimal: true,
+                    if (isAdmin) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: latController,
+                              decoration: const InputDecoration(
+                                labelText: 'Ені (lat)',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                signed: true,
+                                decimal: true,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              controller: lngController,
+                              decoration: const InputDecoration(
+                                labelText: 'Бойлығы (lng)',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                signed: true,
+                                decimal: true,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(

@@ -22,9 +22,12 @@ router.get(
   authorizeRoles("admin", "director"),
   async (req, res) => {
     try {
-      const admins = await User.find({ role: "staff" })
-        .select("-password")
-        .sort({ name: 1 });
+      const role = typeof req.query.role === "string" ? req.query.role : "staff";
+      const allowedRoles = ["admin", "staff"];
+      if (!allowedRoles.includes(role)) {
+        return res.status(400).json({ message: "Рөл дұрыс емес" });
+      }
+      const admins = await User.find({ role }).select("-password").sort({ name: 1 });
       res.json(admins);
     } catch (err) {
       console.error("Fetch admins error:", err);
@@ -40,11 +43,23 @@ router.post(
   authorizeRoles("admin", "director"),
   async (req, res) => {
     try {
-      const { name, email, password } = req.body;
+      const { name, email, password, role } = req.body;
+      // Директор всегда создаёт админов. Админ создаёт только staff.
+      let targetRole = "staff";
+      if (req.user.role === "director") {
+        targetRole = "admin";
+      } else if (role === "staff") {
+        targetRole = "staff";
+      }
+
       if (!name || !email || !password) {
         return res
           .status(400)
           .json({ message: "Барлық өрістерді толтырыңыз" });
+      }
+
+      if (targetRole === "admin" && req.user.role !== "director") {
+        return res.status(403).json({ message: "Тек директор үшін" });
       }
 
       const exist = await User.findOne({ email });
@@ -57,7 +72,7 @@ router.post(
         name,
         email,
         password: hash,
-        role: "staff",
+        role: targetRole,
         createdBy: req.user.id
       });
 
@@ -79,8 +94,11 @@ router.patch(
   authorizeRoles("admin", "director"),
   async (req, res) => {
     try {
-      const { name, email, password, isActive } = req.body;
-      const admin = await User.findOne({ _id: req.params.id, role: "staff" });
+      const { name, email, password, isActive, role } = req.body;
+      const admin = await User.findOne({
+        _id: req.params.id,
+        role: { $in: ["staff", "admin"] }
+      });
 
       if (!admin) {
         return res.status(404).json({ message: "Админ табылмады" });
@@ -96,6 +114,12 @@ router.patch(
 
       if (name) admin.name = name;
       if (typeof isActive === "boolean") admin.isActive = isActive;
+      if (role && role === "admin") {
+        if (req.user.role !== "director") {
+          return res.status(403).json({ message: "Тек директор үшін" });
+        }
+        admin.role = "admin";
+      }
 
       if (password) {
         admin.password = await bcrypt.hash(password, 10);

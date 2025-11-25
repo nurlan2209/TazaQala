@@ -7,8 +7,11 @@ class UserService {
 
   final ApiService _apiService;
 
-  Future<List<UserModel>> fetchAdmins() async {
-    final response = await _apiService.get('/users/admins');
+  Future<List<UserModel>> fetchAdmins({String role = 'staff'}) async {
+    final response = await _apiService.get(
+      '/users/admins',
+      queryParameters: {'role': role},
+    );
     final data = response.data as List<dynamic>;
     return data.map((item) => UserModel.fromJson(item)).toList();
   }
@@ -17,6 +20,7 @@ class UserService {
     required String name,
     required String email,
     required String password,
+    String role = 'staff',
   }) async {
     final response = await _apiService.post(
       '/users/admins',
@@ -24,6 +28,7 @@ class UserService {
         'name': name,
         'email': email,
         'password': password,
+        'role': role,
       },
     );
 
@@ -37,6 +42,7 @@ class UserService {
     String? email,
     String? password,
     bool? isActive,
+    String? role,
   }) async {
     final payload = <String, dynamic>{};
     if (name != null) payload['name'] = name;
@@ -45,6 +51,7 @@ class UserService {
       payload['password'] = password;
     }
     if (isActive != null) payload['isActive'] = isActive;
+    if (role != null) payload['role'] = role;
 
     final response = await _apiService.patch(
       '/users/admins/$id',

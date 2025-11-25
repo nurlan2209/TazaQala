@@ -26,9 +26,20 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _token != null && _user != null;
   String? get errorMessage => _error;
 
-  bool get isStaff => _user?.role == 'staff';
-  bool get isAdmin => _user?.role == 'admin';
-  bool get isDirector => _user?.role == 'director';
+  bool get isStaff {
+    final role = _user?.role.toLowerCase();
+    return role == 'staff';
+  }
+
+  bool get isAdmin {
+    final role = _user?.role.toLowerCase();
+    return role == 'admin';
+  }
+
+  bool get isDirector {
+    final role = _user?.role.toLowerCase();
+    return role == 'director';
+  }
 
   Future<void> loadSession() async {
     final prefs = await SharedPreferences.getInstance();

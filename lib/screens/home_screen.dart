@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:tazaqala/models/report.dart';
 import 'package:tazaqala/providers/auth_provider.dart';
 import 'package:tazaqala/services/report_service.dart';
-import 'package:tazaqala/utils/constans.dart';
 import 'auth_screen.dart';
 import 'create_report_screen.dart';
 import 'help_screen.dart';
@@ -15,7 +14,7 @@ import 'admin_dashboard_screen.dart';
 import 'director_admins_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -43,14 +42,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final authProvider = context.watch<AuthProvider>();
     final isDirector = authProvider.isDirector;
     final isAdmin = authProvider.isAdmin;
-    final isPrivileged = isAdmin || isDirector;
+    final isStaff = authProvider.isStaff;
 
     // Reset index if role changed and current tab is out of range
     final maxIndex = isDirector
         ? 3
         : isAdmin
-        ? 3
-        : 4;
+            ? 3
+            : isStaff
+                ? 1
+                : 4;
     if (_currentIndex > maxIndex) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -68,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, -2),
             ),
@@ -83,8 +84,8 @@ class _HomeScreenState extends State<HomeScreen> {
             final profileTabIndex = isDir
                 ? 3
                 : isAdm
-                ? 3
-                : 4;
+                    ? 3
+                    : (isStaff ? 1 : 4);
 
             if (index == profileTabIndex && !auth.isAuthenticated) {
               Navigator.push(
@@ -104,7 +105,26 @@ class _HomeScreenState extends State<HomeScreen> {
           unselectedFontSize: 12,
           backgroundColor: Colors.white,
           elevation: 0,
-          items: isAdmin
+          items: isDirector
+              ? const [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.dashboard),
+                    label: 'Басты бет',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.admin_panel_settings),
+                    label: 'Админдер',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.description),
+                    label: 'Шағымдар',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.person),
+                    label: 'Профиль',
+                  ),
+                ]
+              : isAdmin
               ? const [
                   BottomNavigationBarItem(
                     icon: Icon(Icons.dashboard),
@@ -123,7 +143,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: 'Профиль',
                   ),
                 ]
-              : const [
+              : isStaff
+                  ? const [
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.description),
+                        label: 'Шағымдар',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.person),
+                        label: 'Профиль',
+                      ),
+                    ]
+                  : const [
                   BottomNavigationBarItem(
                     icon: Icon(Icons.home),
                     label: 'Басты бет',
@@ -152,8 +183,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _getPageByIndex(int index) {
     final auth = context.watch<AuthProvider>();
+    final isDirector = auth.isDirector;
     final isAdmin = auth.isAdmin;
-    final isPrivileged = isAdmin;
+    final isStaff = auth.isStaff;
+    final isPrivileged = isAdmin || isDirector;
 
     if (isPrivileged) {
       if (isDirector) {
@@ -161,7 +194,10 @@ class _HomeScreenState extends State<HomeScreen> {
           case 0:
             return AdminDashboardScreen();
           case 1:
-            return const StaffManagementScreen();
+            return const StaffManagementScreen(
+              allowRoleSwitch: false,
+              defaultShowAdmins: true, // директор всегда создаёт админов
+            );
           case 2:
             return ReportsScreen();
           case 3:
@@ -182,6 +218,15 @@ class _HomeScreenState extends State<HomeScreen> {
           default:
             return AdminDashboardScreen();
         }
+      }
+    } else if (isStaff) {
+      switch (index) {
+        case 0:
+          return ReportsScreen();
+        case 1:
+          return const ProfileScreen();
+        default:
+          return ReportsScreen();
       }
     }
 
@@ -336,7 +381,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2E9B8E).withOpacity(0.3),
+            color: const Color(0xFF2E9B8E).withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -367,7 +412,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             'Мәселені суретке түсіріп, сипаттама беріңіз. Біз оны тиісті ауданға жібереміз.',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: isMobile ? 12 : 13,
               height: 1.4,
             ),
@@ -424,7 +469,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
